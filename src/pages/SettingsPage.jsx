@@ -21,7 +21,7 @@ const SettingsPage = () => {
   }, []);
 
   const toggleHandler = async () => {
-    await axios.patch('/api/settings/toggle-registration', {}, authConfig);
+    await axios.patch('https://leading-unity-backend.vercel.app/api/settings/toggle-registration', {}, authConfig);
     fetchSettings();
   };
 
