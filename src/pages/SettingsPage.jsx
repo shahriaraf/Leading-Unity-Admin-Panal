@@ -11,7 +11,7 @@ const SettingsPage = () => {
 
   const fetchSettings = async () => {
     setLoading(true);
-    const { data } = await axios.get('/api/settings');
+    const { data } = await axios.get('https://leading-unity-backend.vercel.app/api/settings');
     setIsRegistrationOpen(data.isStudentRegistrationOpen);
     setLoading(false);
   };

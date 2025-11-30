@@ -15,7 +15,7 @@ const UsersPage = () => {
       const config = {
         headers: { Authorization: `Bearer ${userInfo.token}` },
       };
-      const { data } = await axios.get('/api/users', config);
+      const { data } = await axios.get('https://leading-unity-backend.vercel.app/api/users', config);
       setUsers(data || []); 
     } catch (error) {
       console.error("Failed to fetch users", error);

@@ -36,7 +36,7 @@ const CoursesPage = () => {
         const config = {
           headers: { Authorization: `Bearer ${userInfo.token}` },
         };
-        await axios.delete(`/api/courses/${id}`, config);
+        await axios.delete(`https://leading-unity-backend.vercel.app/api/courses/${id}`, config);
         fetchCourses();
       } catch (error) {
         console.error("Failed to delete course", error);
