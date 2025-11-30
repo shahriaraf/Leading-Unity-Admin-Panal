@@ -15,7 +15,7 @@ const CoursesPage = () => {
   const fetchCourses = async () => {
     // No changes here
     try {
-      const { data } = await axios.get('/api/courses');
+      const { data } = await axios.get('https://leading-unity-backend.vercel.app/api/courses');
       setCourses(data || []);
     } catch (error) {
       console.error("Failed to fetch courses", error);
