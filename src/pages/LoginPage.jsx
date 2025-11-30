@@ -30,7 +30,7 @@ const LoginPage = () => {
     }
   };
 
-  return (
+  return (<>
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <form onSubmit={submitHandler} className="p-8 bg-white rounded-lg shadow-md w-full max-w-sm">
         <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Admin Login</h2>
@@ -65,7 +65,9 @@ const LoginPage = () => {
           Login
         </button>
       </form>
+      
     </div>
+    </>
   );
 };
 
