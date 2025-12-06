@@ -36,7 +36,7 @@ const UsersPage = () => {
         const config = {
           headers: { Authorization: `Bearer ${userInfo.token}` },
         };
-        await axios.delete(`/api/users/${id}`, config);
+        await axios.delete(`https://leading-unity-backend.vercel.app/api/users/${id}`, config);
         fetchUsers(); // Refresh the user list after deletion
       } catch (error) {
         console.error("Failed to delete user", error);
