@@ -9,6 +9,7 @@ import UsersPage from "./pages/UsersPage";
 import CoursesPage from "./pages/CoursesPage";
 import SettingsPage from "./pages/SettingsPage";
 import SetupAdminPage from "./pages/SetupAdminPage";
+import SubmissionsPage from "./pages/SubmissionsPage";
 
 
 function App() {
@@ -24,6 +25,7 @@ function App() {
             <Route path="/" element={<UsersPage />} />
             <Route path="/courses" element={<CoursesPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/submissions" element={<SubmissionsPage></SubmissionsPage>} />
           </Route>
         </Route>
       </Routes>
