@@ -127,7 +127,7 @@ const SubmissionsPage = () => {
                   {/* Supervisor */}
                   <td className="px-4 py-4">
                     <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-semibold border border-blue-100">
-                       {proposal.supervisor?.name || 'Unknown'}
+                       {proposal.supervisors?.name || 'Unknown'}
                     </span>
                   </td>
 
