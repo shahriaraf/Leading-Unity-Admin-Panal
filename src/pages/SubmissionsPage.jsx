@@ -60,8 +60,6 @@ const SubmissionsPage = () => {
   }, [searchTerm, statusFilter, proposals]);
 
   const handleStatusChange = async (id, newStatus) => {
-    // Custom toast for confirmation can be complex, using simple confirm for safety, then Toast for result
-    if (!window.confirm(`Are you sure you want to ${newStatus} this proposal?`)) return;
 
     const userInfo = JSON.parse(localStorage.getItem('userInfo'));
     const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
@@ -118,7 +116,7 @@ const SubmissionsPage = () => {
   };
 
   return (
-    <div className="min-h-screen p-8 bg-gray-50/50">
+    <div className="min-h-screen p-0 lg:p-8 bg-gray-50/50">
       <Toaster position="top-right" reverseOrder={false} />
       
       {/* --- Header Section --- */}
@@ -223,7 +221,7 @@ const SubmissionsPage = () => {
                     <td className="px-6 py-5 align-top w-1/4">
                       <div className="space-y-3">
                         {/* Leader */}
-                        <div className="flex items-center gap-2 p-1.5 rounded-lg bg-gray-50 border border-gray-100 w-fit pr-3">
+                        <div className="flex items-center gap-2 p-1.5 rounded-lg bg-gray-100 border border-gray-100 w-fit pr-3">
                            <div className="p-1 bg-white rounded shadow-sm"><StudentIcon /></div>
                            <div>
                               <p className="text-xs font-bold text-gray-800">{proposal.student?.name} <span className="text-[10px] text-indigo-500 font-normal ml-1">Leader</span></p>

@@ -30,7 +30,7 @@ const CourseModal = ({ isOpen, onClose, onSuccess }) => {
         },
       };
       
-      await axios.post('https://leading-unity-backend.vercel.app/api/courses', { courseCode, courseTitle }, config);
+      await axios.post('http://localhost:5000/api/courses', { courseCode, courseTitle }, config);
       onSuccess(); // Triggers a data refresh in the parent component
       onClose();   // Closes the modal on success
     } catch (err) {

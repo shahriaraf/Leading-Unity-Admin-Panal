@@ -21,7 +21,7 @@ export default defineConfig({
       // string shorthand for simple cases
       '/api': {
         // This is the address of your backend server
-        target: 'https://leading-unity-backend.vercel.app',
+        target: 'http://localhost:5000',
         changeOrigin: true,
         secure: false,      
       },
