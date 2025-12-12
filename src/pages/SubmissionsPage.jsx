@@ -68,9 +68,9 @@ const SubmissionsPage = () => {
             <tr>
               <th className="px-4 py-3 text-sm font-medium text-left uppercase">Course</th>
               <th className="px-4 py-3 text-sm font-medium text-left uppercase">Title & Link</th>
-              <th className="px-4 py-3 text-sm font-medium text-left uppercase">Leader (Student)</th>
+              <th className="px-4 py-3 text-sm font-medium text-left uppercase">Leader</th>
               <th className="px-4 py-3 text-sm font-medium text-left uppercase">Team Members</th>
-              <th className="px-4 py-3 text-sm font-medium text-left uppercase">Supervisor</th>
+              <th className="px-4 py-3 text-sm font-medium text-left uppercase">Supervisors (Pref)</th>
               <th className="px-4 py-3 text-sm font-medium text-center uppercase">Status</th>
               <th className="px-4 py-3 text-sm font-medium text-center uppercase">Actions</th>
             </tr>
@@ -124,11 +124,19 @@ const SubmissionsPage = () => {
                     )}
                   </td>
 
-                  {/* Supervisor */}
+                  {/* 🟢 UPDATED SUPERVISOR COLUMN (Handles List) */}
                   <td className="px-4 py-4">
-                    <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-semibold border border-blue-100">
-                       {proposal.supervisors?.name || 'Unknown'}
-                    </span>
+                    <div className="flex flex-col gap-1">
+                      {proposal.supervisors && proposal.supervisors.length > 0 ? (
+                        proposal.supervisors.map((sup, index) => (
+                          <span key={index} className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-semibold border border-blue-100 whitespace-nowrap">
+                             {index + 1}. {sup.name}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-gray-400 text-xs">No Preferences</span>
+                      )}
+                    </div>
                   </td>
 
                   {/* Status Badge */}
