@@ -5,10 +5,11 @@ import toast, { Toaster } from 'react-hot-toast';
 // --- Icons ---
 const SearchIcon = () => <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>;
 const StudentIcon = () => <svg className="w-4 h-4 text-indigo-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>;
-const SupervisorIcon = () => <svg className="w-4 h-4 text-purple-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>; // Briefcase style for supervisor
+const SupervisorIcon = () => <svg className="w-4 h-4 text-purple-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>;
 const LinkIcon = () => <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>;
-const CheckIcon = () => <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>;
 const XIcon = () => <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>;
+// Restore Icon (Optional, if you want to undo a rejection later)
+const RestoreIcon = () => <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>;
 
 const SubmissionsPage = () => {
   const [proposals, setProposals] = useState([]);
@@ -64,25 +65,17 @@ const SubmissionsPage = () => {
     const userInfo = JSON.parse(localStorage.getItem('userInfo'));
     const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
 
-    // Toast Promise handles Loading, Success, and Error states automatically
     const promise = axios.put(`https://leading-unity-backend.vercel.app/api/proposals/${id}`, { status: newStatus }, config);
 
     toast.promise(
       promise,
       {
         loading: 'Updating status...',
-        success: (
-          <span>Proposal marked as <b>{newStatus}</b>!</span>
-        ),
+        success: <span>Proposal marked as <b>{newStatus}</b>!</span>,
         error: <b>Failed to update status.</b>,
       },
       {
-        style: {
-          minWidth: '250px',
-          background: '#333',
-          color: '#fff',
-          borderRadius: '8px',
-        },
+        style: { minWidth: '250px', background: '#333', color: '#fff', borderRadius: '8px' },
         success: {
           iconTheme: {
             primary: newStatus === 'approved' ? '#10B981' : '#F43F5E',
@@ -123,7 +116,7 @@ const SubmissionsPage = () => {
       <div className="flex flex-col mb-8 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Submissions</h1>
-          <p className="mt-2 text-sm text-gray-500">Manage and review student project proposals.</p>
+          <p className="mt-2 text-sm text-gray-500">Manage student project proposals (Default: Approved).</p>
         </div>
         
         {/* Search & Filter Toolbar */}
@@ -148,7 +141,6 @@ const SubmissionsPage = () => {
               className="block w-full py-2.5 pl-3 pr-10 text-sm bg-white border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 appearance-none cursor-pointer"
             >
               <option value="all">All Status</option>
-              <option value="pending">Pending</option>
               <option value="approved">Approved</option>
               <option value="rejected">Rejected</option>
             </select>
@@ -220,7 +212,6 @@ const SubmissionsPage = () => {
                     {/* Team Structure */}
                     <td className="px-6 py-5 align-top w-1/4">
                       <div className="space-y-3">
-                        {/* Leader */}
                         <div className="flex items-center gap-2 p-1.5 rounded-lg bg-gray-100 border border-gray-100 w-fit pr-3">
                            <div className="p-1 bg-white rounded shadow-sm"><StudentIcon /></div>
                            <div>
@@ -229,7 +220,6 @@ const SubmissionsPage = () => {
                            </div>
                         </div>
 
-                        {/* Members */}
                         {proposal.teamMembers && proposal.teamMembers.length > 0 && (
                           <div className="flex flex-col gap-2 ml-2 pl-3 border-l-2 border-gray-100">
                             {proposal.teamMembers.map((member, index) => (
@@ -270,24 +260,25 @@ const SubmissionsPage = () => {
                       {getStatusBadge(proposal.status)}
                     </td>
 
-                    {/* Actions */}
+                    {/* Actions (Only Reject Button) */}
                     <td className="px-6 py-5 text-center align-middle">
                       <div className="flex flex-col items-center justify-center gap-2">
-                        {proposal.status !== 'approved' && (
-                          <button 
-                            onClick={() => handleStatusChange(proposal._id, 'approved')}
-                            className="flex items-center justify-center w-full max-w-[100px] px-3 py-1.5 text-xs font-semibold text-white transition-all bg-emerald-500 rounded-lg hover:bg-emerald-600 shadow-sm hover:shadow-md hover:-translate-y-0.5"
-                          >
-                            <CheckIcon /> Approve
-                          </button>
-                        )}
-                        {proposal.status !== 'rejected' && (
+                        {/* Only show REJECT button if the status is NOT rejected */}
+                        {proposal.status !== 'rejected' ? (
                           <button 
                             onClick={() => handleStatusChange(proposal._id, 'rejected')}
                             className="flex items-center justify-center w-full max-w-[100px] px-3 py-1.5 text-xs font-semibold text-white transition-all bg-rose-500 rounded-lg hover:bg-rose-600 shadow-sm hover:shadow-md hover:-translate-y-0.5"
                           >
                             <XIcon /> Reject
                           </button>
+                        ) : (
+                           // Optional: Allow undo (Re-approve) if explicitly needed, otherwise show nothing or a label
+                           <button 
+                             onClick={() => handleStatusChange(proposal._id, 'approved')}
+                             className="flex items-center justify-center w-full max-w-[100px] px-3 py-1.5 text-xs font-semibold text-gray-600 bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200 shadow-sm"
+                           >
+                             <RestoreIcon /> Restore
+                           </button>
                         )}
                       </div>
                     </td>
