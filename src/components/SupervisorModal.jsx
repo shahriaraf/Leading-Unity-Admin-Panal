@@ -33,7 +33,7 @@ const SupervisorModal = ({ isOpen, onClose, onSuccess }) => {
         },
       };
       
-      await axios.post('https://leading-unity-backend.vercel.app/api/users/supervisor', { name, email, password }, config);
+      await axios.post('http://localhost:5000/api/users/supervisor', { name, email, password }, config);
       onSuccess(); // This will trigger fetchUsers in the parent component
       onClose(); // Close the modal
     } catch (err) {

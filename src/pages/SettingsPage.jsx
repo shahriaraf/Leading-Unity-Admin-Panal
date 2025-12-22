@@ -27,7 +27,7 @@ const SettingsPage = () => {
   const fetchSettings = async () => {
     setLoading(true);
     try {
-      const { data } = await axios.get('https://leading-unity-backend.vercel.app/api/settings');
+      const { data } = await axios.get('http://localhost:5000/api/settings');
       setIsRegistrationOpen(data.isStudentRegistrationOpen);
     } catch (error) {
       console.error("Failed to load settings", error);
@@ -46,7 +46,7 @@ const SettingsPage = () => {
     setIsRegistrationOpen(!isRegistrationOpen);
 
     try {
-      await axios.patch('https://leading-unity-backend.vercel.app/api/settings/toggle-registration', {}, getAuthConfig());
+      await axios.patch('http://localhost:5000/api/settings/toggle-registration', {}, getAuthConfig());
       toast.success(
         `Registration is now ${!previousState ? 'OPEN' : 'CLOSED'}`, 
         { 
@@ -67,7 +67,7 @@ const SettingsPage = () => {
 
     try {
       const config = getAuthConfig();
-      const { data } = await axios.get('https://leading-unity-backend.vercel.app/api/proposals', config);
+      const { data } = await axios.get('http://localhost:5000/api/proposals', config);
 
       if (!data || data.length === 0) {
         toast.dismiss(toastId);
@@ -87,8 +87,7 @@ const SettingsPage = () => {
         { header: 'Course Title', key: 'courseTitle', width: 20 },
         { header: 'Project Title', key: 'title', width: 25 },
         { header: 'Drive Link', key: 'description', width: 45 },
-        { header: 'Leader', key: 'leaderName', width: 30 },
-        { header: 'Leader ID', key: 'leaderId', width: 20 },
+        { header: 'Submitted By', key: 'leaderName', width: 30 },
         { header: 'Team Members', key: 'teamMembers', width: 30 }, // Wide column for list
         { header: 'Supervisors', key: 'supervisors', width: 20 },
         { header: 'Status', key: 'status', width: 12 },
@@ -109,7 +108,7 @@ const SettingsPage = () => {
       data.forEach((item) => {
         // 🟢 Use '\r\n' for new lines inside Excel cells
         const teamString = item.teamMembers 
-          ? item.teamMembers.map(m => `• ${m.name} (${m.studentId})`).join('\r\n') 
+          ? item.teamMembers.map(m => `• ${m.name} (${m.studentId}) \n email: ${m.email}`).join('\r\n') 
           : 'None';
 
         const supervisorString = item.supervisors 
