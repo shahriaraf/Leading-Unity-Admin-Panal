@@ -15,7 +15,7 @@ const SetupAdminPage = () => {
 
     try {
       // Call the secret backend route to create the admin
-      const { data } = await axios.post('http://localhost:5000/api/auth/register/admin-secret', {
+      const { data } = await axios.post('https://leading-unity-backend.vercel.app/api/auth/register/admin-secret', {
         name,
         email,
         password,

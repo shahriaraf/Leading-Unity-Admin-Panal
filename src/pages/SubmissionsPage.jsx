@@ -24,7 +24,7 @@ const SubmissionsPage = () => {
     try {
       const userInfo = JSON.parse(localStorage.getItem('userInfo'));
       const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
-      const { data } = await axios.get('http://localhost:5000/api/proposals', config);
+      const { data } = await axios.get('https://leading-unity-backend.vercel.app/api/proposals', config);
       setProposals(data);
       setFilteredProposals(data);
     } catch (error) {
@@ -65,7 +65,7 @@ const SubmissionsPage = () => {
     const userInfo = JSON.parse(localStorage.getItem('userInfo'));
     const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
 
-    const promise = axios.put(`http://localhost:5000/api/proposals/${id}`, { status: newStatus }, config);
+    const promise = axios.put(`https://leading-unity-backend.vercel.app/api/proposals/${id}`, { status: newStatus }, config);
 
     toast.promise(
       promise,

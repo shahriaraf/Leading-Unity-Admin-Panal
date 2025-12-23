@@ -23,7 +23,7 @@ const CoursesPage = () => {
   const fetchCourses = async () => {
     try {
       // ✅ Updated URL
-      const { data } = await axios.get('http://localhost:5000/api/courses');
+      const { data } = await axios.get('https://leading-unity-backend.vercel.app/api/courses');
       setCourses(data || []);
       setFilteredCourses(data || []);
     } catch (error) {
@@ -58,7 +58,7 @@ const CoursesPage = () => {
     const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
     
     // ✅ Toast Promise for UX
-    const promise = axios.delete(`http://localhost:5000/api/courses/${id}`, config);
+    const promise = axios.delete(`https://leading-unity-backend.vercel.app/api/courses/${id}`, config);
 
     toast.promise(promise, {
       loading: 'Deleting course...',
