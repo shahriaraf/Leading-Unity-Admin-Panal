@@ -27,7 +27,7 @@ const SettingsPage = () => {
   const fetchSettings = async () => {
     setLoading(true);
     try {
-      const { data } = await axios.get('https://leading-unity-backend.vercel.app/api/settings');
+      const { data } = await axios.get('https://leading-unity-nest-backend.vercel.app/api/settings');
       setIsRegistrationOpen(data.isStudentRegistrationOpen);
     } catch (error) {
       console.error("Failed to load settings", error);
@@ -46,7 +46,7 @@ const SettingsPage = () => {
     setIsRegistrationOpen(!isRegistrationOpen);
 
     try {
-      await axios.patch('https://leading-unity-backend.vercel.app/api/settings/toggle-registration', {}, getAuthConfig());
+      await axios.patch('https://leading-unity-nest-backend.vercel.app/api/settings/toggle-registration', {}, getAuthConfig());
       toast.success(
         `Registration is now ${!previousState ? 'OPEN' : 'CLOSED'}`, 
         { 
@@ -67,7 +67,7 @@ const SettingsPage = () => {
 
     try {
       const config = getAuthConfig();
-      const { data } = await axios.get('https://leading-unity-backend.vercel.app/api/proposals', config);
+      const { data } = await axios.get('https://leading-unity-nest-backend.vercel.app/api/proposals', config);
 
       if (!data || data.length === 0) {
         toast.dismiss(toastId);

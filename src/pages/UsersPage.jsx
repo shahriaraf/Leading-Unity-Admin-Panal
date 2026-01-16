@@ -25,7 +25,7 @@ const UsersPage = () => {
       const userInfo = JSON.parse(localStorage.getItem('userInfo'));
       const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
       // ✅ Updated URL
-      const { data } = await axios.get('https://leading-unity-backend.vercel.app/api/users', config);
+      const { data } = await axios.get('https://leading-unity-nest-backend.vercel.app/api/users', config);
       setUsers(data || []);
       setFilteredUsers(data || []);
     } catch (error) {
@@ -65,7 +65,7 @@ const UsersPage = () => {
     const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
     
     // ✅ Toast Promise
-    const promise = axios.delete(`https://leading-unity-backend.vercel.app/api/users/${id}`, config);
+    const promise = axios.delete(`https://leading-unity-nest-backend.vercel.app/api/users/${id}`, config);
 
     toast.promise(promise, {
       loading: 'Deleting user...',

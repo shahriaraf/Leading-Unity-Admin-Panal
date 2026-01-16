@@ -34,7 +34,7 @@ const CourseModal = ({ isOpen, onClose, onSuccess, courseToEdit }) => {
       if (courseToEdit) {
         // 🟢 EDIT MODE: PUT Request
         await axios.put(
-          `https://leading-unity-backend.vercel.app/api/courses/${courseToEdit._id}`, 
+          `https://leading-unity-nest-backend.vercel.app/api/courses/${courseToEdit._id}`, 
           payload, 
           config
         );
@@ -42,7 +42,7 @@ const CourseModal = ({ isOpen, onClose, onSuccess, courseToEdit }) => {
       } else {
         // 🟢 ADD MODE: POST Request
         await axios.post(
-          'https://leading-unity-backend.vercel.app/api/courses', 
+          'https://leading-unity-nest-backend.vercel.app/api/courses', 
           payload, 
           config
         );
