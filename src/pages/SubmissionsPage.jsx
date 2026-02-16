@@ -14,6 +14,7 @@ const RestoreIcon = () => <svg className="w-4 h-4 mr-1" fill="none" stroke="curr
 const SubmissionsPage = () => {
   const [proposals, setProposals] = useState([]);
   const [filteredProposals, setFilteredProposals] = useState([]);
+  const [allSupervisors, setAllSupervisors] = useState([]); // <--- New State for all supervisors
   const [loading, setLoading] = useState(true);
   
   // Search & Filter State
@@ -26,21 +27,30 @@ const SubmissionsPage = () => {
     return { headers: { Authorization: `Bearer ${userInfo?.token}` } };
   };
 
-  const fetchProposals = async () => {
+  const fetchData = async () => {
     try {
-      const { data } = await axios.get('https://leading-unity-nest-backend.vercel.app/api/proposals', getAuthHeader());
-      setProposals(data);
-      setFilteredProposals(data);
+      const config = getAuthHeader();
+      
+      // 1. Fetch Proposals
+      const proposalsRes = await axios.get('https://leading-unity-nest-backend.vercel.app/api/proposals', config);
+      setProposals(proposalsRes.data);
+      setFilteredProposals(proposalsRes.data);
+
+      // 2. Fetch All Users to get Supervisors list
+      const usersRes = await axios.get('https://leading-unity-nest-backend.vercel.app/api/users', config);
+      const supervisors = usersRes.data.filter(u => u.role === 'supervisor');
+      setAllSupervisors(supervisors);
+
     } catch (error) {
-      console.error("Failed to fetch proposals", error);
-      toast.error("Could not load proposals.", { style: { background: '#333', color: '#fff' }});
+      console.error("Failed to fetch data", error);
+      toast.error("Could not load data.", { style: { background: '#333', color: '#fff' }});
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchProposals();
+    fetchData();
   }, []);
 
   useEffect(() => {
@@ -78,17 +88,17 @@ const SubmissionsPage = () => {
 
     try {
       await promise;
-      fetchProposals();
+      fetchData(); // Refresh to ensure sync
     } catch (error) { console.error(error); }
   };
 
   // --- HANDLER: Assign Supervisor ---
   const handleAssignSupervisor = async (proposalId, supervisorId) => {
-    // Optimistic UI Update: immediately update state to feel snappy
+    // Optimistic UI Update
     const updated = proposals.map(p => {
         if(p._id === proposalId) {
-            // Find full supervisor object from preferences to update UI correctly locally
-            const supObj = p.supervisors.find(s => s._id === supervisorId);
+            // Find full supervisor object from the ALL supervisors list
+            const supObj = allSupervisors.find(s => s._id === supervisorId);
             return { ...p, assignedSupervisor: supObj }; 
         }
         return p;
@@ -103,8 +113,8 @@ const SubmissionsPage = () => {
         );
         toast.success("Supervisor assigned successfully!");
     } catch (error) {
-        toast.error("Failed to assign supervisor");
-        fetchProposals(error); // Revert on error
+        toast.error("Failed to assign supervisor", { error });
+        fetchData(); // Revert on error
     }
   };
 
@@ -214,7 +224,7 @@ const SubmissionsPage = () => {
                       </div>
                     </td>
 
-                    {/* Preferred Supervisors */}
+                    {/* Preferred Supervisors (View Only) */}
                     <td className="px-6 py-5 align-top w-1/5">
                       <div className="flex flex-col gap-2">
                         {proposal.supervisors?.map((sup, index) => (
@@ -229,7 +239,7 @@ const SubmissionsPage = () => {
                       </div>
                     </td>
 
-                    {/* Assigned Supervisor (Select) */}
+                    {/* Assigned Supervisor (Dropdown with ALL supervisors) */}
                     <td className="px-6 py-5 align-top w-1/5">
                        {proposal.status === 'approved' ? (
                            <div className="relative">
@@ -242,12 +252,17 @@ const SubmissionsPage = () => {
                                  onChange={(e) => handleAssignSupervisor(proposal._id, e.target.value)}
                                >
                                   <option value="" disabled>Select Supervisor...</option>
-                                  {proposal.supervisors?.map(sup => (
-                                      <option key={sup._id} value={sup._id}>
-                                          {sup.name}
-                                      </option>
-                                  ))}
-                                  {/* Optional: Add separator and list all other supervisors if needed, but usually stick to preferences */}
+                                  
+                                  {/* Map ALL supervisors */}
+                                  {allSupervisors.map(sup => {
+                                      // Check if this supervisor was in the team's preference list
+                                      const isPreferred = proposal.supervisors?.some(s => s._id === sup._id);
+                                      return (
+                                          <option key={sup._id} value={sup._id}>
+                                              {sup.name} {isPreferred ? '(Preferred)' : ''}
+                                          </option>
+                                      );
+                                  })}
                                </select>
                                
                                {/* Custom Arrow or Icon */}
