@@ -4,7 +4,7 @@ import toast, { Toaster } from 'react-hot-toast';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
-// --- Icons ---
+// --- Icons (Inline SVGs) ---
 const DownloadIcon = () => <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>;
 const TableIcon = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>;
 const SettingsIcon = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>;
@@ -16,17 +16,16 @@ const FileIcon = () => <svg className="w-4 h-4 mr-1" fill="none" stroke="current
 
 const SettingsPage = () => {
   const [isRegistrationOpen, setIsRegistrationOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [savingCriteria, setSavingCriteria] = useState(false);
   const [courses, setCourses] = useState([]);
 
-  // Evaluation Config State
+  // Updated Config State: 4 fields for Defense, 4 fields for Own Team
   const [evalConfig, setEvalConfig] = useState({
-    criteria1Name: 'Criteria 1',
-    criteria1Max: 30,
-    criteria2Name: 'Criteria 2',
-    criteria2Max: 30,
+    criteria1Name: 'Defense Criteria 1', criteria1Max: 30,
+    criteria2Name: 'Defense Criteria 2', criteria2Max: 30,
+    ownTeamCriteria1Name: 'Own Criteria 1', ownTeamCriteria1Max: 40,
+    ownTeamCriteria2Name: 'Own Criteria 2', ownTeamCriteria2Max: 40,
   });
 
   const API_URL = 'https://leading-unity-nest-backend.vercel.app/api';
@@ -35,28 +34,30 @@ const SettingsPage = () => {
     try {
       const userInfo = JSON.parse(localStorage.getItem('userInfo'));
       return { headers: { Authorization: `Bearer ${userInfo?.token}` } };
-    } catch (e) { return {e}; }
+    } catch { return {}; }
   };
 
   const fetchData = async () => {
-    setLoading(true);
     try {
       const settingsRes = await axios.get(`${API_URL}/settings`);
       setIsRegistrationOpen(settingsRes.data.isStudentRegistrationOpen);
+      
       setEvalConfig({
-        criteria1Name: settingsRes.data.criteria1Name || 'Criteria 1',
+        criteria1Name: settingsRes.data.criteria1Name || 'Defense 1',
         criteria1Max: settingsRes.data.criteria1Max || 30,
-        criteria2Name: settingsRes.data.criteria2Name || 'Criteria 2',
+        criteria2Name: settingsRes.data.criteria2Name || 'Defense 2',
         criteria2Max: settingsRes.data.criteria2Max || 30,
+        ownTeamCriteria1Name: settingsRes.data.ownTeamCriteria1Name || 'Own 1',
+        ownTeamCriteria1Max: settingsRes.data.ownTeamCriteria1Max || 40,
+        ownTeamCriteria2Name: settingsRes.data.ownTeamCriteria2Name || 'Own 2',
+        ownTeamCriteria2Max: settingsRes.data.ownTeamCriteria2Max || 40,
       });
 
       const coursesRes = await axios.get(`${API_URL}/courses`);
       setCourses(coursesRes.data);
 
     } catch (error) {
-      toast.error("Could not load system data.",error);
-    } finally {
-      setLoading(false);
+      toast.error("Could not load system data.", { error });
     }
   };
 
@@ -72,23 +73,24 @@ const SettingsPage = () => {
       toast.success(`Registration is now ${!previousState ? 'OPEN' : 'CLOSED'}`);
     } catch (error) {
       setIsRegistrationOpen(previousState);
-      toast.error("Failed to update setting",error);
+      toast.error("Failed to update setting", { error });
     }
   };
 
+  // --- HANDLER: Save Criteria ---
   const handleSaveEvaluation = async () => {
     setSavingCriteria(true);
     try {
       await axios.post(`${API_URL}/settings/evaluation`, evalConfig, getAuthConfig());
-      toast.success("Criteria updated successfully!");
+      toast.success("All criteria updated successfully!");
     } catch (error) {
-      toast.error("Failed to save settings.",error);
+      toast.error("Failed to save settings.", { error });
     } finally {
       setSavingCriteria(false);
     }
   };
 
-  // --- EXCEL LOGIC ---
+  // --- HANDLER: Excel Export Logic (Updated for Average) ---
   const handleDownloadReport = async (courseFilter = null) => {
     setExporting(true);
     const toastId = toast.loading(`Generating report...`);
@@ -113,98 +115,127 @@ const SettingsPage = () => {
       const sheetName = courseFilter ? courseFilter.courseCode : 'Master Sheet';
       const worksheet = workbook.addWorksheet(sheetName.substring(0, 30));
 
+      // Define Columns
       worksheet.columns = [
         { header: 'Course', key: 'courseCode', width: 12 },
-        { header: 'Project Title', key: 'title', width: 30 },
+        { header: 'Project Title', key: 'title', width: 25 },
         { header: 'Status', key: 'status', width: 12 },
-        { header: 'Team Members (Name | ID | CGPA)', key: 'members', width: 60 },
-        { header: 'Supervisors (Preferred)', key: 'supervisors', width: 30 },
-        { header: 'Assigned Supervisor', key: 'assigned', width: 25 },
-        // Marks
-        { header: `${evalConfig.criteria1Name}`, key: 'c1', width: 20 },
-        { header: `${evalConfig.criteria2Name}`, key: 'c2', width: 20 },
-        { header: 'Total', key: 'total', width: 15 },
+        { header: 'Team Members', key: 'members', width: 55 },
+        { header: 'Assigned Sup.', key: 'assigned', width: 20 },
+        // Supervisor Own Marks
+        { header: `Sup: ${evalConfig.ownTeamCriteria1Name}`, key: 'own1', width: 18 },
+        { header: `Sup: ${evalConfig.ownTeamCriteria2Name}`, key: 'own2', width: 18 },
+        { header: 'Sup Total', key: 'ownTotal', width: 12 },
+        // Defense Marks (Average)
+        { header: `Def: ${evalConfig.criteria1Name} (Avg)`, key: 'def1', width: 18 },
+        { header: `Def: ${evalConfig.criteria2Name} (Avg)`, key: 'def2', width: 18 },
+        { header: 'Def Total (Avg)', key: 'defTotal', width: 15 },
+        // Grand Total
+        { header: 'Grand Total', key: 'grand', width: 15 },
       ];
 
+      // Style Header
       const headerRow = worksheet.getRow(1);
       headerRow.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
       headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF111827' } };
       headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
 
       finalData.forEach((item) => {
-        // --- 1. Get Data ---
         const members = item.teamMembers || [];
-        const savedMarks = item.marks || [];
-        const supervisors = item.supervisors || [];
+        const allMarks = item.marks || [];
 
-        let memberString = '';
-        let c1String = '';
-        let c2String = '';
-        let totalString = '';
+        // String builders
+        let memberStr = '', assignedStr = '';
+        let own1Str = '', own2Str = '', ownTotStr = '';
+        let def1Str = '', def2Str = '', defTotStr = '';
+        let grandStr = '';
 
-        // --- 2. Build Strings ---
         members.forEach((m, index) => {
            const suffix = index < members.length - 1 ? '\n' : ''; 
            
-           memberString += `${m.name} (${m.studentId}) | CGPA: ${m.cgpa || 'N/A'}${suffix}`;
+           // Member Details
+           memberStr += `${m.name} (${m.studentId}) - CGPA: ${m.cgpa || 'N/A'}${suffix}`;
 
-           const mark = savedMarks.find(mark => mark.studentId === m.studentId);
+           // --- 1. SUPERVISOR MARKS (Type: 'own') ---
+           const ownMark = allMarks.find(mark => mark.studentId === m.studentId && mark.type === 'own');
+           let o1 = 0, o2 = 0;
            
-           if (mark) {
-             if (mark.isAbsent) {
-                c1String += `Absent${suffix}`;
-                c2String += `Absent${suffix}`;
-                totalString += `0${suffix}`;
+           if(ownMark) {
+             if(ownMark.isAbsent) {
+               own1Str += `Abs${suffix}`; own2Str += `Abs${suffix}`; ownTotStr += `0${suffix}`;
              } else {
-                c1String += `${mark.criteria1}${suffix}`;
-                c2String += `${mark.criteria2}${suffix}`;
-                totalString += `${mark.criteria1 + mark.criteria2}${suffix}`;
+               o1 = ownMark.criteria1 || 0;
+               o2 = ownMark.criteria2 || 0;
+               own1Str += `${o1}${suffix}`;
+               own2Str += `${o2}${suffix}`;
+               ownTotStr += `${o1 + o2}${suffix}`;
              }
            } else {
-             c1String += `-${suffix}`;
-             c2String += `-${suffix}`;
-             totalString += `-${suffix}`;
+             own1Str += `-${suffix}`; own2Str += `-${suffix}`; ownTotStr += `-${suffix}`;
            }
+
+           // --- 2. DEFENSE MARKS (Type: 'defense') - Calculate Average ---
+           const defMarks = allMarks.filter(mark => mark.studentId === m.studentId && mark.type === 'defense');
+           let d1Avg = 0, d2Avg = 0, dTotAvg = 0;
+
+           if(defMarks.length > 0) {
+             // Filter out absent records for average calculation logic (or treat as 0, strictly absent means no mark)
+             const presentMarks = defMarks.filter(mk => !mk.isAbsent);
+             
+             if(presentMarks.length > 0) {
+               const sum1 = presentMarks.reduce((acc, curr) => acc + (curr.criteria1 || 0), 0);
+               const sum2 = presentMarks.reduce((acc, curr) => acc + (curr.criteria2 || 0), 0);
+               d1Avg = parseFloat((sum1 / presentMarks.length).toFixed(2));
+               d2Avg = parseFloat((sum2 / presentMarks.length).toFixed(2));
+               dTotAvg = parseFloat((d1Avg + d2Avg).toFixed(2));
+
+               def1Str += `${d1Avg}${suffix}`;
+               def2Str += `${d2Avg}${suffix}`;
+               defTotStr += `${dTotAvg}${suffix}`;
+             } else {
+               // All marked absent
+               def1Str += `Abs${suffix}`; def2Str += `Abs${suffix}`; defTotStr += `0${suffix}`;
+             }
+           } else {
+             def1Str += `-${suffix}`; def2Str += `-${suffix}`; defTotStr += `-${suffix}`;
+           }
+
+           // --- 3. GRAND TOTAL ---
+           // Supervisor Total + Defense Avg Total
+           const grandTotal = (ownMark && !ownMark.isAbsent ? (o1+o2) : 0) + dTotAvg;
+           grandStr += `${grandTotal.toFixed(2)}${suffix}`;
         });
 
-        const supervisorString = supervisors.length > 0 
-          ? supervisors.map((s, i) => `${i+1}. ${s.name}`).join('\n') 
-          : 'None';
-        
-        const assignedName = item.assignedSupervisor ? item.assignedSupervisor.name : 'Not Assigned';
+        // Assigned Supervisor
+        assignedStr = item.assignedSupervisor ? item.assignedSupervisor.name : 'Not Assigned';
 
-        // --- 3. Add Row ---
+        // Add Row
         const row = worksheet.addRow({
           courseCode: item.course?.courseCode || 'N/A',
           title: item.title,
           status: item.status.toUpperCase(),
-          members: memberString, 
-          supervisors: supervisorString,
-          assigned: assignedName,
-          c1: c1String,
-          c2: c2String,
-          total: totalString
+          members: memberStr,
+          assigned: assignedStr,
+          own1: own1Str, own2: own2Str, ownTotal: ownTotStr,
+          def1: def1Str, def2: def2Str, defTotal: defTotStr,
+          grand: grandStr
         });
 
-        // --- 4. FIX: Calculate & Set Row Height ---
-        // ExcelJS doesn't auto-calculate wrapping height well. 
-        // We count the newlines and multiply by a factor (e.g., 18px per line)
+        // --- ROW HEIGHT CALCULATION (Crucial for display) ---
         const memberLines = members.length || 1;
-        const supervisorLines = supervisors.length || 1;
-        const maxLines = Math.max(memberLines, supervisorLines);
-        
-        // Standard height is ~15. We use 20 per line to give padding.
-        row.height = Math.max(25, maxLines * 20); 
+        row.height = Math.max(25, memberLines * 20); // 20px per line
       });
 
-      // Style & Border loop
+      // Styling Loop
       worksheet.eachRow((row, rowNumber) => {
         if (rowNumber === 1) return;
         row.eachCell((cell) => {
-          cell.alignment = { vertical: 'top', horizontal: 'left', wrapText: true }; // wrapText is critical
+          cell.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
           cell.border = {
             top: { style: 'thin', color: { argb: 'FFEEEEEE' } },
-            bottom: { style: 'thin', color: { argb: 'FFEEEEEE' } }
+            bottom: { style: 'thin', color: { argb: 'FFEEEEEE' } },
+            left: { style: 'thin', color: { argb: 'FFEEEEEE' } },
+            right: { style: 'thin', color: { argb: 'FFEEEEEE' } }
           };
         });
       });
@@ -281,25 +312,62 @@ const SettingsPage = () => {
           </div>
         </div>
 
-        {/* Card 2: Evaluation */}
+        {/* Card 2: Evaluation (Split into 2 Sections) */}
         <div className="relative overflow-hidden bg-white border border-gray-200 shadow-lg rounded-2xl p-6">
           <div className="absolute top-0 left-0 w-full h-1 bg-purple-500"></div>
+          
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 rounded-lg bg-purple-100 text-purple-600"><GradingIcon /></div>
             <h3 className="text-lg font-bold text-gray-900">Evaluation Criteria</h3>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {['criteria1', 'criteria2'].map((c, i) => (
-              <div key={c} className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                <span className="text-xs font-bold text-purple-600 uppercase tracking-wider mb-2 block">Criteria 0{i+1}</span>
-                <input type="text" value={evalConfig[c+'Name']} onChange={(e) => setEvalConfig({...evalConfig, [c+'Name']: e.target.value})} className="w-full text-sm border-gray-300 rounded-lg shadow-sm mb-2" placeholder="Name" />
-                <input type="number" value={evalConfig[c+'Max']} onChange={(e) => setEvalConfig({...evalConfig, [c+'Max']: e.target.value})} className="w-full text-sm border-gray-300 rounded-lg shadow-sm" placeholder="Max" />
-              </div>
-            ))}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Left: Defense Board */}
+            <div className="bg-purple-50/50 p-4 rounded-xl border border-purple-100">
+               <h4 className="text-sm font-bold text-purple-700 uppercase tracking-wide mb-4 border-b border-purple-200 pb-2">Defense Board (All Teams)</h4>
+               <div className="space-y-4">
+                  <div>
+                    <label className="text-xs font-semibold text-gray-500">Criteria 1</label>
+                    <div className="flex gap-2">
+                        <input className="w-2/3 text-sm border-gray-300 rounded-lg" value={evalConfig.criteria1Name} onChange={e => setEvalConfig({...evalConfig, criteria1Name: e.target.value})} placeholder="Name" />
+                        <input className="w-1/3 text-sm border-gray-300 rounded-lg" type="number" value={evalConfig.criteria1Max} onChange={e => setEvalConfig({...evalConfig, criteria1Max: e.target.value})} placeholder="Max" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-500">Criteria 2</label>
+                    <div className="flex gap-2">
+                        <input className="w-2/3 text-sm border-gray-300 rounded-lg" value={evalConfig.criteria2Name} onChange={e => setEvalConfig({...evalConfig, criteria2Name: e.target.value})} placeholder="Name" />
+                        <input className="w-1/3 text-sm border-gray-300 rounded-lg" type="number" value={evalConfig.criteria2Max} onChange={e => setEvalConfig({...evalConfig, criteria2Max: e.target.value})} placeholder="Max" />
+                    </div>
+                  </div>
+               </div>
+            </div>
+
+            {/* Right: Supervisor Own */}
+            <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100">
+               <h4 className="text-sm font-bold text-indigo-700 uppercase tracking-wide mb-4 border-b border-indigo-200 pb-2">Supervisor (Own Team)</h4>
+               <div className="space-y-4">
+                  <div>
+                    <label className="text-xs font-semibold text-gray-500">Criteria 1</label>
+                    <div className="flex gap-2">
+                        <input className="w-2/3 text-sm border-gray-300 rounded-lg" value={evalConfig.ownTeamCriteria1Name} onChange={e => setEvalConfig({...evalConfig, ownTeamCriteria1Name: e.target.value})} placeholder="Name" />
+                        <input className="w-1/3 text-sm border-gray-300 rounded-lg" type="number" value={evalConfig.ownTeamCriteria1Max} onChange={e => setEvalConfig({...evalConfig, ownTeamCriteria1Max: e.target.value})} placeholder="Max" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-500">Criteria 2</label>
+                    <div className="flex gap-2">
+                        <input className="w-2/3 text-sm border-gray-300 rounded-lg" value={evalConfig.ownTeamCriteria2Name} onChange={e => setEvalConfig({...evalConfig, ownTeamCriteria2Name: e.target.value})} placeholder="Name" />
+                        <input className="w-1/3 text-sm border-gray-300 rounded-lg" type="number" value={evalConfig.ownTeamCriteria2Max} onChange={e => setEvalConfig({...evalConfig, ownTeamCriteria2Max: e.target.value})} placeholder="Max" />
+                    </div>
+                  </div>
+               </div>
+            </div>
           </div>
+
           <div className="mt-6 flex justify-end">
             <button onClick={handleSaveEvaluation} disabled={savingCriteria} className="flex items-center px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50">
-              {savingCriteria ? 'Saving...' : <><SaveIcon /> Save Config</>}
+              {savingCriteria ? 'Saving...' : <><SaveIcon /> Save Configuration</>}
             </button>
           </div>
         </div>
