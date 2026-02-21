@@ -18,7 +18,10 @@ const LoginPage = () => {
   const submitHandler = async (e) => {
     e.preventDefault();
     try {
-      const { data } = await axios.post('https://leading-unity-nest-backend.vercel.app/api/auth/login', { email, password });
+      const { data } = await axios.post('https://leading-unity-nest-backend.vercel.app/api/auth/login', {
+  identifier: email,
+  password: password 
+});
       if (data.role !== 'admin') {
         setError('Access denied. Only admins can log in here.');
         return;
