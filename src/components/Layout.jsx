@@ -90,7 +90,7 @@ const Layout = () => {
           <LogoIcon />
           <div>
             <h1 className="text-lg font-bold text-white tracking-wide">AdminPortal</h1>
-            <p className="text-xs text-gray-400 uppercase tracking-wider">Leading Unity</p>
+            <p className="text-xs text-gray-400 uppercase tracking-wider">LeadUnity</p>
           </div>
         </div>
 
