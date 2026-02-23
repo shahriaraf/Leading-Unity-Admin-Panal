@@ -7,7 +7,8 @@ import SupervisorModal from '../components/SupervisorModal';
 const SearchIcon = () => <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>;
 const PlusIcon = () => <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>;
 const TrashIcon = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>;
-const MailIcon = () => <svg className="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>;
+const MailIcon = () => <svg className="w-4 h-4 text-gray-400 mr-2 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>;
+const BadgeIcon = () => <svg className="w-4 h-4 text-gray-400 mr-2 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>;
 const UserGroupIcon = () => <svg className="w-12 h-12 text-gray-200 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>;
 
 const UsersPage = () => {
@@ -24,7 +25,7 @@ const UsersPage = () => {
     try {
       const userInfo = JSON.parse(localStorage.getItem('userInfo'));
       const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
-      // ✅ Updated URL
+      
       const { data } = await axios.get('https://leading-unity-nest-backend.vercel.app/api/users', config);
       setUsers(data || []);
       setFilteredUsers(data || []);
@@ -52,7 +53,9 @@ const UsersPage = () => {
       const lower = searchTerm.toLowerCase();
       result = result.filter(u => 
         u.name.toLowerCase().includes(lower) || 
-        u.email.toLowerCase().includes(lower)
+        (u.email && u.email.toLowerCase().includes(lower)) ||
+        (u.abbreviation && u.abbreviation.toLowerCase().includes(lower)) ||
+        (u.studentId && u.studentId.includes(lower))
       );
     }
 
@@ -60,11 +63,9 @@ const UsersPage = () => {
   }, [searchTerm, roleFilter, users]);
 
   const deleteHandler = async (id) => {
-
     const userInfo = JSON.parse(localStorage.getItem('userInfo'));
     const config = { headers: { Authorization: `Bearer ${userInfo.token}` } };
     
-    // ✅ Toast Promise
     const promise = axios.delete(`https://leading-unity-nest-backend.vercel.app/api/users/${id}`, config);
 
     toast.promise(promise, {
@@ -81,7 +82,6 @@ const UsersPage = () => {
     }
   };
 
-  // Helper: Generate Initials for Avatar
   const getInitials = (name) => {
     return name
       .split(' ')
@@ -110,7 +110,7 @@ const UsersPage = () => {
             </div>
             <input
               type="text"
-              placeholder="Search users..."
+              placeholder="Search by Name, ID, or Abbrev..."
               className="block w-full py-2.5 pl-10 pr-4 text-sm bg-white border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all group-hover:border-gray-300"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -145,7 +145,7 @@ const UsersPage = () => {
             <thead className="bg-gray-50/50">
               <tr>
                 <th className="px-6 py-4 text-xs font-semibold tracking-wider text-left text-gray-500 uppercase">User</th>
-                <th className="px-6 py-4 text-xs font-semibold tracking-wider text-left text-gray-500 uppercase">Contact</th>
+                <th className="px-6 py-4 text-xs font-semibold tracking-wider text-left text-gray-500 uppercase">Contact / Details</th>
                 <th className="px-6 py-4 text-xs font-semibold tracking-wider text-center text-gray-500 uppercase">Role</th>
                 <th className="px-6 py-4 text-xs font-semibold tracking-wider text-right text-gray-500 uppercase">Actions</th>
               </tr>
@@ -175,29 +175,45 @@ const UsersPage = () => {
                 filteredUsers.map(user => (
                   <tr key={user._id} className="group transition-colors duration-200 hover:bg-gray-50/50">
                     
-                    {/* User Name & Avatar */}
+                    {/* User Name & ID/Designation */}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-sm">
+                        <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm bg-gradient-to-br ${user.role === 'supervisor' ? 'from-purple-500 to-pink-600' : 'from-teal-500 to-emerald-600'}`}>
                           {getInitials(user.name)}
                         </div>
                         <div className="ml-4">
                           <div className="text-sm font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">
                             {user.name}
                           </div>
-                          {user.studentId && (
+                          {user.role === 'student' ? (
                             <div className="text-xs text-gray-500">ID: {user.studentId}</div>
+                          ) : (
+                            <div className="text-xs text-gray-500">{user.designation}</div>
                           )}
                         </div>
                       </div>
                     </td>
 
-                    {/* Contact (Email) */}
+                    {/* Contact / Details */}
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center text-sm text-gray-500">
-                        <MailIcon />
-                        {user.email}
-                      </div>
+                      {user.role === 'supervisor' ? (
+                        <div className="flex flex-col">
+                           <div className="flex items-center text-sm font-medium text-gray-900">
+                             <BadgeIcon />
+                             Abbr: {user.abbreviation}
+                           </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col">
+                           <div className="flex items-center text-sm text-gray-600 mb-1">
+                             <MailIcon />
+                             {user.email}
+                           </div>
+                           <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded w-fit">
+                             Batch: {user.batch} | Sec: {user.section}
+                           </span>
+                        </div>
+                      )}
                     </td>
 
                     {/* Role Badge */}
