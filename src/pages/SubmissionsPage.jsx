@@ -14,17 +14,17 @@ const RestoreIcon = () => <svg className="w-4 h-4 mr-1" fill="none" stroke="curr
 const SubmissionsPage = () => {
   const [proposals, setProposals] = useState([]);
   const [filteredProposals, setFilteredProposals] = useState([]);
-  const [allSupervisors, setAllSupervisors] = useState([]); // <--- New State for all supervisors
+  const [allSupervisors, setAllSupervisors] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // Search & Filter State
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
-  // --- API HELPER ---
   const getAuthHeader = () => {
-    const userInfo = JSON.parse(localStorage.getItem('userInfo'));
-    return { headers: { Authorization: `Bearer ${userInfo?.token}` } };
+    try {
+      const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+      return { headers: { Authorization: `Bearer ${userInfo?.token}` } };
+    } catch { return {}; }
   };
 
   const fetchData = async () => {
@@ -36,14 +36,16 @@ const SubmissionsPage = () => {
       setProposals(proposalsRes.data);
       setFilteredProposals(proposalsRes.data);
 
-      // 2. Fetch All Users to get Supervisors list
+      // 2. Fetch All Users (Service merges Students & Supervisors)
       const usersRes = await axios.get('https://leading-unity-nest-backend.vercel.app/api/users', config);
+      
+      // Filter for Supervisors only (using role property)
       const supervisors = usersRes.data.filter(u => u.role === 'supervisor');
       setAllSupervisors(supervisors);
 
     } catch (error) {
       console.error("Failed to fetch data", error);
-      toast.error("Could not load data.", { style: { background: '#333', color: '#fff' }});
+      toast.error("Could not load data.");
     } finally {
       setLoading(false);
     }
@@ -70,7 +72,6 @@ const SubmissionsPage = () => {
     setFilteredProposals(result);
   }, [searchTerm, statusFilter, proposals]);
 
-  // --- HANDLER: Status Change ---
   const handleStatusChange = async (id, newStatus) => {
     const promise = axios.put(
       `https://leading-unity-nest-backend.vercel.app/api/proposals/${id}`, 
@@ -82,28 +83,25 @@ const SubmissionsPage = () => {
       loading: 'Updating status...',
       success: <span>Proposal marked as <b>{newStatus}</b>!</span>,
       error: <b>Failed to update status.</b>,
-    }, {
-      style: { minWidth: '250px', background: '#333', color: '#fff', borderRadius: '8px' },
-    });
+    }, { style: { minWidth: '250px', background: '#333', color: '#fff', borderRadius: '8px' }});
 
     try {
       await promise;
-      fetchData(); // Refresh to ensure sync
+      fetchData();
     } catch (error) { console.error(error); }
   };
 
-  // --- HANDLER: Assign Supervisor ---
   const handleAssignSupervisor = async (proposalId, supervisorId) => {
-    // Optimistic UI Update
+    // Optimistic Update
     const updated = proposals.map(p => {
         if(p._id === proposalId) {
-            // Find full supervisor object from the ALL supervisors list
             const supObj = allSupervisors.find(s => s._id === supervisorId);
             return { ...p, assignedSupervisor: supObj }; 
         }
         return p;
     });
     setProposals(updated);
+    setFilteredProposals(updated); // Also update filtered list
 
     try {
         await axios.put(
@@ -113,8 +111,8 @@ const SubmissionsPage = () => {
         );
         toast.success("Supervisor assigned successfully!");
     } catch (error) {
-        toast.error("Failed to assign supervisor", { error });
-        fetchData(); // Revert on error
+        toast.error("Failed to assign supervisor",error);
+        fetchData(); // Revert
     }
   };
 
@@ -135,7 +133,6 @@ const SubmissionsPage = () => {
     <div className="min-h-screen p-0 lg:p-8 bg-gray-50/50">
       <Toaster position="top-right" reverseOrder={false} />
       
-      {/* Header */}
       <div className="flex flex-col mb-8 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Submissions</h1>
@@ -145,17 +142,11 @@ const SubmissionsPage = () => {
         <div className="flex flex-col gap-4 mt-6 md:mt-0 md:flex-row">
           <div className="relative group">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none"><SearchIcon /></div>
-            <input
-              type="text" placeholder="Search..."
-              className="block w-full py-2.5 pl-10 pr-4 text-sm bg-white border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
-              value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-            />
+            <input type="text" placeholder="Search..." className="block w-full py-2.5 pl-10 pr-4 text-sm bg-white border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
+              value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
           </div>
           <div className="relative">
-            <select
-              value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-              className="block w-full py-2.5 pl-3 pr-10 text-sm bg-white border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-            >
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="block w-full py-2.5 pl-3 pr-10 text-sm bg-white border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50">
               <option value="all">All Status</option>
               <option value="approved">Approved</option>
               <option value="rejected">Rejected</option>
@@ -164,7 +155,6 @@ const SubmissionsPage = () => {
         </div>
       </div>
 
-      {/* Table */}
       <div className="overflow-hidden bg-white border border-gray-200 shadow-xl rounded-2xl ring-1 ring-black/5">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-100">
@@ -199,47 +189,50 @@ const SubmissionsPage = () => {
                     {/* Project */}
                     <td className="px-6 py-5 align-top w-1/5">
                       <div className="flex flex-col gap-2.5">
-                        <span className="inline-flex self-start px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">{proposal.course?.courseCode}</span>
+                        <span className="inline-flex self-start px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">{proposal.course?.courseCode || 'N/A'}</span>
                         <div className="text-sm font-bold text-gray-900 leading-snug">{proposal.title}</div>
-                        <a href={proposal.description.startsWith('http') ? proposal.description : `https://${proposal.description}`} target="_blank" rel="noreferrer" className="inline-flex items-center text-xs font-medium text-gray-500 hover:text-indigo-600 transition-colors mt-1"><LinkIcon /> Open Drive Link</a>
+                        <a href={proposal.description} target="_blank" rel="noreferrer" className="inline-flex items-center text-xs font-medium text-gray-500 hover:text-indigo-600 transition-colors mt-1"><LinkIcon /> Open Drive Link</a>
                       </div>
                     </td>
 
                     {/* Team */}
                     <td className="px-6 py-5 align-top w-1/5">
                       <div className="space-y-3">
-                        <div className="flex items-center gap-2 p-1.5 rounded-lg bg-gray-100 w-fit pr-3">
+                        {/* Leader */}
+                        <div className="flex items-center gap-2 p-1.5 rounded-lg bg-indigo-50 border border-indigo-100 w-fit pr-3">
                            <div className="p-1 bg-white rounded shadow-sm"><StudentIcon /></div>
                            <div>
-                              <p className="text-xs font-bold text-gray-800">{proposal.student?.name}</p>
+                              <p className="text-xs font-bold text-gray-800">{proposal.student?.name} <span className="text-[10px] text-indigo-500 font-semibold">(Leader)</span></p>
                               <p className="text-[10px] text-gray-500">{proposal.student?.studentId}</p>
                            </div>
                         </div>
+                        {/* Members */}
                         {proposal.teamMembers?.map((member, index) => (
                           <div key={index} className="flex items-center gap-2 ml-2 pl-3 border-l-2 border-gray-100">
-                            <StudentIcon />
+                            <div className="w-1.5 h-1.5 rounded-full bg-gray-300"></div>
                             <div><p className="text-xs font-medium text-gray-700">{member.name}</p><p className="text-[10px] text-gray-400">{member.studentId}</p></div>
                           </div>
                         ))}
                       </div>
                     </td>
 
-                    {/* Preferred Supervisors (View Only) */}
+                    {/* Preferred Supervisors */}
                     <td className="px-6 py-5 align-top w-1/5">
                       <div className="flex flex-col gap-2">
                         {proposal.supervisors?.map((sup, index) => (
-                            <div key={index} className="flex items-center gap-2.5 opacity-70">
+                            <div key={index} className="flex items-center gap-2.5 opacity-80">
                               <SupervisorIcon />
                               <div className="flex flex-col">
                                 <span className="text-xs font-semibold text-gray-700">{sup.name}</span>
-                                <span className="text-[10px] text-gray-400">Pref {index + 1}</span>
+                                <span className="text-[10px] text-gray-400 font-medium">Priority {index + 1}</span>
                               </div>
                             </div>
                         ))}
+                        {(!proposal.supervisors || proposal.supervisors.length === 0) && <span className="text-xs text-gray-400 italic">No preferences</span>}
                       </div>
                     </td>
 
-                    {/* Assigned Supervisor (Dropdown with ALL supervisors) */}
+                    {/* Assigned Supervisor */}
                     <td className="px-6 py-5 align-top w-1/5">
                        {proposal.status === 'approved' ? (
                            <div className="relative">
@@ -252,26 +245,22 @@ const SubmissionsPage = () => {
                                  onChange={(e) => handleAssignSupervisor(proposal._id, e.target.value)}
                                >
                                   <option value="" disabled>Select Supervisor...</option>
-                                  
-                                  {/* Map ALL supervisors */}
                                   {allSupervisors.map(sup => {
-                                      // Check if this supervisor was in the team's preference list
+                                      // Check if Preferred
                                       const isPreferred = proposal.supervisors?.some(s => s._id === sup._id);
                                       return (
-                                          <option key={sup._id} value={sup._id}>
-                                              {sup.name} {isPreferred ? '(Preferred)' : ''}
+                                          <option key={sup._id} value={sup._id} className={isPreferred ? "font-bold text-indigo-700 bg-indigo-50" : ""}>
+                                              {sup.name} {isPreferred ? '★' : ''}
                                           </option>
                                       );
                                   })}
                                </select>
-                               
-                               {/* Custom Arrow or Icon */}
                                <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
                                   {proposal.assignedSupervisor ? <AssignIcon /> : <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>}
                                </div>
                            </div>
                        ) : (
-                           <span className="text-xs text-gray-400 italic">Approve first to assign</span>
+                           <span className="text-xs text-gray-400 italic bg-gray-50 px-2 py-1 rounded border border-gray-100">Approve first</span>
                        )}
                     </td>
 
@@ -281,9 +270,9 @@ const SubmissionsPage = () => {
                     {/* Actions */}
                     <td className="px-6 py-5 text-center align-middle">
                         {proposal.status !== 'rejected' ? (
-                          <button onClick={() => handleStatusChange(proposal._id, 'rejected')} className="flex items-center justify-center w-full px-3 py-1.5 text-xs font-semibold text-white bg-rose-500 rounded-lg hover:bg-rose-600 shadow-sm"><XIcon /> Reject</button>
+                          <button onClick={() => handleStatusChange(proposal._id, 'rejected')} className="flex items-center justify-center w-full px-3 py-1.5 text-xs font-semibold text-white bg-rose-500 rounded-lg hover:bg-rose-600 shadow-sm transition-all hover:shadow-md"><XIcon /> Reject</button>
                         ) : (
-                           <button onClick={() => handleStatusChange(proposal._id, 'approved')} className="flex items-center justify-center w-full px-3 py-1.5 text-xs font-semibold text-gray-600 bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200 shadow-sm"><RestoreIcon /> Restore</button>
+                           <button onClick={() => handleStatusChange(proposal._id, 'approved')} className="flex items-center justify-center w-full px-3 py-1.5 text-xs font-semibold text-gray-600 bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200 shadow-sm transition-all"><RestoreIcon /> Restore</button>
                         )}
                     </td>
 
