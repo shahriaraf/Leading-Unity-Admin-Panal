@@ -23,7 +23,7 @@ const SettingsPage = () => {
   const [savingCriteria, setSavingCriteria] = useState(false);
   const [courses, setCourses] = useState([]);
 
-  // Updated Config State: 4 fields for Defense, 4 fields for Own Team
+  // Updated Config State
   const [evalConfig, setEvalConfig] = useState({
     criteria1Name: 'Defense 1', criteria1Max: 30,
     criteria2Name: 'Defense 2', criteria2Max: 30,
@@ -45,7 +45,6 @@ const SettingsPage = () => {
     try {
       const settingsRes = await axios.get(`${API_URL}/settings`);
       setIsRegistrationOpen(settingsRes.data.isStudentRegistrationOpen);
-      // Assuming backend supports this field, defaulting to false if not present yet
       setIsSubmissionOpen(settingsRes.data.isSubmissionOpen ?? false); 
       
       setEvalConfig({
@@ -63,7 +62,7 @@ const SettingsPage = () => {
       setCourses(coursesRes.data);
 
     } catch (error) {
-      toast.error("Failed to load settings",error);
+      toast.error("Failed to load settings");
     } finally {
       setLoading(false);
     }
@@ -84,11 +83,9 @@ const SettingsPage = () => {
     const prev = isSubmissionOpen;
     setIsSubmissionOpen(!prev);
     try {
-      // Assuming a new endpoint or update to existing one. 
-      // If backend logic isn't ready, this UI will optimistic update but might fail or not persist.
       await axios.patch(`${API_URL}/settings/toggle-submission`, {}, getAuthConfig());
       toast.success(`Submissions ${!prev ? 'Opened' : 'Closed'}`);
-    } catch { setIsSubmissionOpen(prev); toast.error("Failed (Check Backend)"); }
+    } catch { setIsSubmissionOpen(prev); toast.error("Failed"); }
   };
 
   const handleSaveEvaluation = async () => {
@@ -99,6 +96,7 @@ const SettingsPage = () => {
     } catch { toast.error("Save failed"); } finally { setSavingCriteria(false); }
   };
 
+  // --- EXCEL EXPORT ---
   const handleDownloadReport = async (courseFilter = null) => {
     setExporting(true);
     const toastId = toast.loading("Generating Report...");
@@ -117,19 +115,33 @@ const SettingsPage = () => {
       const sheetName = courseFilter ? courseFilter.courseCode : 'Master Sheet';
       const worksheet = workbook.addWorksheet(sheetName.substring(0, 30));
 
+      // Define Columns
       worksheet.columns = [
-        { header: '#', key: 'sn', width: 5 }, // Serial Number
-        { header: 'Course', key: 'c', width: 12 }, { header: 'Title', key: 't', width: 25 },
-        { header: 'Status', key: 's', width: 12 }, { header: 'Team', key: 'm', width: 55 },
-        { header: 'Assigned', key: 'a', width: 20 },
+        { header: '#', key: 'sn', width: 5 },
+        { header: 'Course', key: 'c', width: 12 },
+        { header: 'Project Title', key: 't', width: 25 },
+        { header: 'Defense Schedule', key: 'date', width: 22 }, // NEW COLUMN
+        { header: 'Status', key: 's', width: 12 },
+        { header: 'Team Members', key: 'm', width: 55 },
+        { header: 'Assigned Sup.', key: 'a', width: 20 },
+        // Supervisor Own Marks
         { header: `Sup: ${evalConfig.ownTeamCriteria1Name}`, key: 'o1', width: 15 },
         { header: `Sup: ${evalConfig.ownTeamCriteria2Name}`, key: 'o2', width: 15 },
-        { header: 'Sup Tot', key: 'ot', width: 10 },
-        { header: `Def: ${evalConfig.criteria1Name}`, key: 'd1', width: 15 },
-        { header: `Def: ${evalConfig.criteria2Name}`, key: 'd2', width: 15 },
-        { header: 'Def Tot', key: 'dt', width: 10 },
-        { header: 'Grand', key: 'g', width: 10 },
+        { header: 'Sup Total', key: 'ot', width: 10 },
+        // Defense Marks (Average)
+        { header: `Def: ${evalConfig.criteria1Name} (Avg)`, key: 'd1', width: 15 },
+        { header: `Def: ${evalConfig.criteria2Name} (Avg)`, key: 'd2', width: 15 },
+        { header: 'Def Total (Avg)', key: 'dt', width: 10 },
+        // Grand Total
+        { header: 'Grand Total', key: 'g', width: 10 },
       ];
+
+      // Styling: Dark Header with white text
+      const headerRow = worksheet.getRow(1);
+      headerRow.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+      headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } }; // Slate-800
+      headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+      headerRow.height = 30;
 
       finalData.forEach((item, index) => {
         const members = item.teamMembers || [];
@@ -163,14 +175,52 @@ const SettingsPage = () => {
            gt += `${grand.toFixed(1)}${suffix}`;
         });
 
+        // Format Date nicely
+        const defenseDateStr = item.defenseDate 
+          ? new Date(item.defenseDate).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+          : 'Not Scheduled';
+
         aStr = item.assignedSupervisor ? item.assignedSupervisor.name : 'N/A';
+        
         const row = worksheet.addRow([
           index + 1,
-          item.course?.courseCode, item.title, item.status, mStr, aStr, 
+          item.course?.courseCode, 
+          item.title, 
+          defenseDateStr, // Date Column
+          item.status, 
+          mStr, 
+          aStr, 
           o1, o2, ot, d1, d2, dt, gt
         ]);
+
         row.height = Math.max(25, members.length * 20);
         row.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
+      });
+
+      // Apply Zebra Striping & Borders
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) return;
+        
+        row.eachCell((cell, colNumber) => {
+          // Center align short columns (SN, Course, Status, Date, Marks)
+          // Columns: 1, 2, 4, 5, and 8 to 14
+          if([1, 2, 4, 5, 8, 9, 10, 11, 12, 13, 14].includes(colNumber)) {
+             cell.alignment = { vertical: 'top', horizontal: 'center', wrapText: true };
+          }
+
+          // Borders
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+            bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+            left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+            right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+          };
+
+          // Zebra Striping (Even Rows)
+          if (rowNumber % 2 === 0) {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } }; // Slate-50
+          }
+        });
       });
 
       const buffer = await workbook.xlsx.writeBuffer();
