@@ -4,7 +4,7 @@ import toast, { Toaster } from 'react-hot-toast';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 
-// --- BD Timezone Helpers ---
+// ... (Timezone helpers remain the same) ...
 const toBDDate = (isoString) => {
   if (!isoString) return null;
   const date = new Date(isoString);
@@ -20,6 +20,76 @@ const fromBDToUTC = (bdDate) => {
   const localOffset = bdDate.getTimezoneOffset();
   const diff = bdOffset + localOffset;
   return new Date(bdDate.getTime() - diff * 60 * 1000);
+};
+
+// ... (DefenseScheduler component remains same) ...
+const DefenseScheduler = ({ proposal, onSave }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(
+    proposal.defenseDate ? toBDDate(proposal.defenseDate) : null
+  );
+  const [startTime, setStartTime] = useState(
+    proposal.defenseDate ? toBDDate(proposal.defenseDate) : new Date().setHours(9, 0, 0)
+  );
+  const [endTime, setEndTime] = useState(
+    proposal.defenseEndDate ? toBDDate(proposal.defenseEndDate) : new Date().setHours(9, 30, 0)
+  );
+
+  const handleSave = () => {
+    if (!selectedDate) return;
+    const start = new Date(selectedDate);
+    const sTime = new Date(startTime);
+    start.setHours(sTime.getHours(), sTime.getMinutes());
+
+    const end = new Date(selectedDate);
+    const eTime = new Date(endTime);
+    end.setHours(eTime.getHours(), eTime.getMinutes());
+
+    onSave(start, end);
+    setIsOpen(false);
+  };
+
+  const displayString = proposal.defenseDate && proposal.defenseEndDate
+    ? `${toBDDate(proposal.defenseDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • ${toBDDate(proposal.defenseDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} - ${toBDDate(proposal.defenseEndDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`
+    : '-- Set Schedule --';
+
+  return (
+    <div className="relative w-[220px]">
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center w-full px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 transition-all text-left"
+      >
+        <span className="mr-2 text-purple-500">📅</span>
+        <span className="truncate">{displayString}</span>
+      </button>
+
+      {isOpen && (
+        <div className="absolute top-full left-0 mt-2 z-50 bg-white border border-gray-200 rounded-xl shadow-xl p-4 w-[280px]">
+          <h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Schedule Defense</h4>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-[10px] font-semibold text-gray-400 mb-1">Date</label>
+              <DatePicker selected={selectedDate} onChange={date => setSelectedDate(date)} dateFormat="MMM d, yyyy" className="w-full text-xs p-2 border rounded" />
+            </div>
+            <div className="flex gap-2">
+              <div className="w-1/2">
+                <label className="block text-[10px] font-semibold text-gray-400 mb-1">Start</label>
+                <DatePicker selected={startTime} onChange={date => setStartTime(date)} showTimeSelect showTimeSelectOnly timeIntervals={15} timeCaption="Start" dateFormat="h:mm aa" className="w-full text-xs p-2 border rounded" />
+              </div>
+              <div className="w-1/2">
+                <label className="block text-[10px] font-semibold text-gray-400 mb-1">End</label>
+                <DatePicker selected={endTime} onChange={date => setEndTime(date)} showTimeSelect showTimeSelectOnly timeIntervals={15} timeCaption="End" dateFormat="h:mm aa" className="w-full text-xs p-2 border rounded" />
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 flex gap-2">
+            <button onClick={() => setIsOpen(false)} className="flex-1 py-1.5 text-xs font-semibold text-gray-600 bg-gray-100 rounded hover:bg-gray-200">Cancel</button>
+            <button onClick={handleSave} className="flex-1 py-1.5 text-xs font-semibold text-white bg-indigo-600 rounded hover:bg-indigo-700">Save</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 // --- Icons ---
@@ -49,12 +119,12 @@ const SubmissionsPage = () => {
   const [proposals, setProposals] = useState([]);
   const [filteredProposals, setFilteredProposals] = useState([]);
   const [allSupervisors, setAllSupervisors] = useState([]);
-  const [coursesList, setCoursesList] = useState([]); // List of unique courses
+  const [coursesList, setCoursesList] = useState([]); 
   const [loading, setLoading] = useState(true);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [courseFilter, setCourseFilter] = useState('all'); // New Course Filter
+  const [courseFilter, setCourseFilter] = useState('all'); 
 
   const getAuthHeader = () => {
     try {
@@ -73,8 +143,6 @@ const SubmissionsPage = () => {
       setAllSupervisors(supervisors);
 
       const data = proposalsRes.data;
-      
-      // Extract unique courses for dropdown
       const uniqueCourses = [...new Set(data.map(p => p.course?.courseCode).filter(Boolean))];
       setCoursesList(uniqueCourses);
 
@@ -90,7 +158,6 @@ const SubmissionsPage = () => {
     }
   };
 
-  // Helper to Sort: Dates First (Ascending), then Nulls
   const sortProposals = (list) => {
     return [...list].sort((a, b) => {
       if (!a.defenseDate) return 1;
@@ -103,30 +170,40 @@ const SubmissionsPage = () => {
 
   useEffect(() => {
     let result = proposals;
-
-    // Filter by Status
-    if (statusFilter !== 'all') {
-      result = result.filter(p => p.status === statusFilter);
-    }
-
-    // Filter by Course (New)
-    if (courseFilter !== 'all') {
-      result = result.filter(p => p.course?.courseCode === courseFilter);
-    }
-
-    // Filter by Search Term
+    if (statusFilter !== 'all') result = result.filter(p => p.status === statusFilter);
+    if (courseFilter !== 'all') result = result.filter(p => p.course?.courseCode === courseFilter);
     if (searchTerm) {
-      const lowerTerm = searchTerm.toLowerCase();
+      const lower = searchTerm.toLowerCase();
       result = result.filter(p => 
-        p.title.toLowerCase().includes(lowerTerm) ||
-        p.course?.courseCode.toLowerCase().includes(lowerTerm) ||
-        p.student?.name.toLowerCase().includes(lowerTerm) ||
-        p.student?.studentId.includes(lowerTerm)
+        p.title.toLowerCase().includes(lower) ||
+        p.course?.courseCode.toLowerCase().includes(lower) ||
+        p.student?.name.toLowerCase().includes(lower) ||
+        p.student?.studentId.includes(lower)
       );
     }
-    
     setFilteredProposals(sortProposals(result));
-  }, [searchTerm, statusFilter, courseFilter, proposals]); // Added courseFilter dependency
+  }, [searchTerm, statusFilter, courseFilter, proposals]);
+
+  const handleDateUpdate = async (start, end, proposalId) => {
+    const utcStart = fromBDToUTC(start).toISOString();
+    const utcEnd = fromBDToUTC(end).toISOString();
+
+    const updated = proposals.map(p => 
+      p._id === proposalId ? { ...p, defenseDate: utcStart, defenseEndDate: utcEnd } : p
+    );
+    const sorted = sortProposals(updated);
+    setProposals(sorted);
+    setFilteredProposals(sorted);
+
+    try {
+      await axios.put(
+        `https://leading-unity-nest-backend.vercel.app/api/proposals/${proposalId}/defense-date`,
+        { date: utcStart, endDate: utcEnd },
+        getAuthHeader()
+      );
+      toast.success("Schedule Updated");
+    } catch { toast.error("Failed to schedule"); fetchData(); }
+  };
 
   const handleStatusChange = async (id, newStatus) => {
     const promise = axios.put(
@@ -134,12 +211,8 @@ const SubmissionsPage = () => {
       { status: newStatus }, 
       getAuthHeader()
     );
-    toast.promise(promise, {
-      loading: 'Updating...',
-      success: <span>Marked as <b>{newStatus}</b>!</span>,
-      error: <b>Failed.</b>,
-    }, { style: { minWidth: '250px', background: '#333', color: '#fff', borderRadius: '8px' }});
-    try { await promise; fetchData(); } catch (error) { console.error(error); }
+    toast.promise(promise, { loading: 'Updating...', success: 'Updated!', error: 'Failed.' });
+    try { await promise; fetchData(); } catch { fetchData(); }
   };
 
   const handleAssignSupervisor = async (proposalId, supervisorId) => {
@@ -151,7 +224,6 @@ const SubmissionsPage = () => {
         return p;
     });
     setProposals(updated);
-    
     try {
         await axios.put(
             `https://leading-unity-nest-backend.vercel.app/api/proposals/${proposalId}/assign-supervisor`,
@@ -159,38 +231,24 @@ const SubmissionsPage = () => {
             getAuthHeader()
         );
         toast.success("Assigned!");
-    } catch (error) {
-        toast.error("Failed", error);
-        fetchData();
-    }
+    } catch { toast.error("Failed"); fetchData(); }
   };
 
-  const handleDateChange = async (bdDate, proposalId) => {
-    const utcDate = fromBDToUTC(bdDate);
-    const updated = proposals.map(p => 
-      p._id === proposalId ? { ...p, defenseDate: utcDate.toISOString() } : p
+  const getStatusBadge = (status) => {
+    const styles = {
+      approved: "bg-emerald-100 text-emerald-800 border-emerald-200",
+      rejected: "bg-rose-100 text-rose-800 border-rose-200",
+      pending: "bg-amber-100 text-amber-800 border-amber-200",
+    };
+    return (
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide border ${styles[status] || styles.pending}`}>
+        {status}
+      </span>
     );
-    // Sort immediately
-    const sorted = sortProposals(updated);
-    setProposals(sorted);
-    setFilteredProposals(sorted);
-
-    try {
-      await axios.put(
-        `https://leading-unity-nest-backend.vercel.app/api/proposals/${proposalId}/defense-date`,
-        { date: utcDate.toISOString() },
-        getAuthHeader()
-      );
-      toast.success("Schedule Updated");
-    } catch (error) {
-      toast.error("Failed to schedule",error);
-      fetchData();
-    }
   };
-
 
   return (
-    <div className="min-h-screen p-6 md:p-10 bg-gray-50/30 font-sans">
+    <div className="min-h-screen p-6 md:p-10 font-sans">
       <GlobalDatePickerStyles />
       <Toaster position="top-right" />
       
@@ -202,8 +260,6 @@ const SubmissionsPage = () => {
         </div>
         
         <div className="flex flex-col sm:flex-row gap-3">
-          
-          {/* SEARCH */}
           <div className="relative group min-w-[240px]">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400 group-focus-within:text-indigo-500 transition-colors">
               <SearchIcon />
@@ -215,23 +271,19 @@ const SubmissionsPage = () => {
             />
           </div>
 
-          {/* COURSE FILTER */}
           <div className="relative min-w-[140px]">
             <select
               value={courseFilter} onChange={(e) => setCourseFilter(e.target.value)}
               className="block w-full py-2.5 pl-3 pr-8 text-sm bg-white border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer appearance-none text-gray-700 font-medium"
             >
               <option value="all">All Courses</option>
-              {coursesList.map(c => (
-                <option key={c} value={c}>{c}</option>
-              ))}
+              {coursesList.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
             <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-gray-400">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
             </div>
           </div>
 
-          {/* STATUS FILTER */}
           <div className="relative min-w-[120px]">
             <select
               value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
@@ -245,7 +297,6 @@ const SubmissionsPage = () => {
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
             </div>
           </div>
-
         </div>
       </div>
 
@@ -302,117 +353,61 @@ const SubmissionsPage = () => {
                           {proposal.course?.courseCode || 'N/A'}
                         </span>
                         <div className="text-sm font-semibold text-gray-900 leading-snug break-words">{proposal.title}</div>
-                        <a href={proposal.description} target="_blank" rel="noreferrer" className="inline-flex items-center text-xs font-medium text-gray-500 hover:text-indigo-600 transition-colors mt-1">
-                          <LinkIcon /> View Proposal
-                        </a>
+                        <a href={proposal.description} target="_blank" rel="noreferrer" className="inline-flex items-center text-xs font-medium text-gray-500 hover:text-indigo-600 transition-colors mt-1"><LinkIcon /> View Proposal</a>
                       </div>
                     </td>
 
                     {/* Team Members */}
                     <td className="px-6 py-4 align-top">
-                      <div className="space-y-2">
-                        {/* Leader */}
-                        <div className="flex items-center gap-2 text-xs font-semibold text-gray-800">
-                           <TeamIcon /> 
-                           <span>{proposal.student?.name} <span className="text-indigo-500 font-bold">(L)</span></span>
+                      {proposal.teamMembers && proposal.teamMembers.length > 0 ? (
+                        <div className="space-y-2">
+                          {proposal.teamMembers.map((member, idx) => (
+                            <div key={idx} className="flex items-center gap-2 text-xs text-gray-600">
+                              <TeamIcon />
+                              <span>{member.name} <span className="text-gray-400">({member.studentId})</span></span>
+                            </div>
+                          ))}
                         </div>
-                        {/* Other Members */}
-                        {proposal.teamMembers?.map((member, idx) => (
-                          <div key={idx} className="flex items-center gap-2 text-xs text-gray-600 pl-0.5">
-                            <span className="w-3 h-px bg-gray-300"></span>
-                            <span>{member.name} <span className="text-gray-400">({member.studentId})</span></span>
-                          </div>
-                        ))}
-                      </div>
+                      ) : (
+                        <span className="text-xs text-gray-400 italic">No members listed</span>
+                      )}
                     </td>
 
-                    {/* Defense Schedule */}
+                    {/* Defense Schedule (Time Range) */}
                     <td className="px-6 py-4 align-top">
                        {proposal.status === 'approved' ? (
-                         <div className="defense-datepicker-wrapper relative w-[180px]">
-                            <DatePicker
-                                selected={proposal.defenseDate ? toBDDate(proposal.defenseDate) : null}
-                                onChange={(date) => handleDateChange(date, proposal._id)}
-                                showTimeSelect
-                                timeFormat="hh:mm aa"
-                                timeIntervals={15}
-                                dateFormat="MMM d, yyyy h:mm aa"
-                                placeholderText="Set Date & Time"
-                                timeCaption="BD Time"
-                                popperProps={{ strategy: "fixed" }}
-                                className="block w-full py-2 pl-8 pr-2 text-xs font-medium border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all text-gray-700 cursor-pointer bg-white"
-                            />
-                            <div className="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none">
-                               <CalendarIcon />
-                            </div>
-                         </div>
-                       ) : (
-                         <span className="text-xs text-gray-400 italic">--</span>
-                       )}
+                         <DefenseScheduler proposal={proposal} onSave={(s, e) => handleDateUpdate(s, e, proposal._id)} />
+                       ) : <span className="text-xs text-gray-400 italic">--</span>}
                     </td>
 
-                    {/* Assigned Supervisor */}
+                    {/* Assign Supervisor (Abbreviation) */}
                     <td className="px-6 py-4 align-top w-[200px]">
-                       {proposal.status === 'approved' ? (
-                           <div className="relative">
-                               <select 
-                                 className={`
-                                   block w-full py-2 pl-3 pr-8 text-xs font-medium border rounded-lg shadow-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all
-                                   ${proposal.assignedSupervisor ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-white border-gray-200 text-gray-500'}
-                                 `}
-                                 value={proposal.assignedSupervisor?._id || ""}
-                                 onChange={(e) => handleAssignSupervisor(proposal._id, e.target.value)}
-                               >
-                                  <option value="" disabled>Select</option>
-                                  {allSupervisors.map(sup => {
-                                      const isPreferred = proposal.supervisors?.some(s => s._id === sup._id);
-                                      return (
-                                          <option key={sup._id} value={sup._id} className={isPreferred ? "font-bold text-indigo-600 bg-indigo-50" : "text-gray-700"}>
-                                              {sup.abbreviation || sup.name} {isPreferred ? '(Pref)' : ''}
-                                          </option>
-                                      );
-                                  })}
-                               </select>
-                               <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-gray-400">
-                                  {proposal.assignedSupervisor ? <AssignIcon /> : <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>}
-                               </div>
-                           </div>
-                       ) : (
-                           <span className="inline-flex items-center px-2 py-1 rounded text-[10px] font-medium bg-gray-100 text-gray-500 border border-gray-200">
-                             Approval Required
-                           </span>
-                       )}
+                       <select 
+                         className={`block w-full py-2 pl-3 pr-8 text-xs font-medium border rounded-lg shadow-sm ${proposal.assignedSupervisor ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-white border-gray-200 text-gray-500'}`}
+                         value={proposal.assignedSupervisor?._id || ""}
+                         onChange={(e) => handleAssignSupervisor(proposal._id, e.target.value)}
+                         disabled={proposal.status !== 'approved'}
+                       >
+                          <option value="" disabled>Select</option>
+                          {allSupervisors.map(sup => {
+                              // 🟢 Logic Re-added: Check Preference
+                              const isPreferred = proposal.supervisors?.some(s => s._id === sup._id);
+                              return (
+                                  <option key={sup._id} value={sup._id} className={isPreferred ? "font-bold text-indigo-600 bg-indigo-50" : "text-gray-700"}>
+                                      {sup.abbreviation || sup.name} {isPreferred ? '(Pref)' : ''}
+                                  </option>
+                              );
+                          })}
+                       </select>
                     </td>
 
-                    {/* Status */}
-                    <td className="px-6 py-4 text-center align-top whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide border ${
-                        proposal.status === 'approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                        proposal.status === 'rejected' ? 'bg-rose-50 text-rose-700 border-rose-100' :
-                        'bg-amber-50 text-amber-700 border-amber-100'
-                      }`}>
-                        {proposal.status}
-                      </span>
-                    </td>
+                    <td className="px-6 py-4 text-center align-top">{getStatusBadge(proposal.status)}</td>
 
-                    {/* Actions */}
                     <td className="px-6 py-4 text-right align-top whitespace-nowrap">
                         {proposal.status !== 'rejected' ? (
-                          <button 
-                            onClick={() => handleStatusChange(proposal._id, 'rejected')} 
-                            className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-rose-500/20"
-                            title="Reject"
-                          >
-                            <XIcon />
-                          </button>
+                          <button onClick={() => handleStatusChange(proposal._id, 'rejected')} className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg"><XIcon /></button>
                         ) : (
-                           <button 
-                             onClick={() => handleStatusChange(proposal._id, 'approved')} 
-                             className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                             title="Approve / Restore"
-                           >
-                             <RestoreIcon />
-                           </button>
+                           <button onClick={() => handleStatusChange(proposal._id, 'approved')} className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg"><RestoreIcon /></button>
                         )}
                     </td>
 
@@ -422,8 +417,6 @@ const SubmissionsPage = () => {
             </tbody>
           </table>
         </div>
-        
-        {/* Footer */}
         <div className="bg-gray-50 border-t border-gray-200 px-6 py-3 text-xs text-gray-500 flex justify-between items-center">
            <span>Showing {filteredProposals.length} submissions</span>
         </div>

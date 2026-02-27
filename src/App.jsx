@@ -7,9 +7,9 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import LoginPage from "./pages/LoginPage";
 import UsersPage from "./pages/UsersPage";
 import CoursesPage from "./pages/CoursesPage";
-import SettingsPage from "./pages/SettingsPage";
-import SubmissionsPage from "./pages/SubmissionsPage";
+import SettingsPage from "./pages/SettingsPage/SettingsPage";
 import AdminRegisterPage from "./pages/AdminRegisterPage";
+import SubmissionsPage from "./pages/SubmissionsPage";
 
 
 function App() {
