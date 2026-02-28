@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 
@@ -25,8 +26,8 @@ const Layout = () => {
     const isActive = location.pathname === to;
     
     // Background Colors
-    const sidebarBg = '#0d2331'; // Deep Teal
-    const contentBg = '#eef5f9'; // Pale Blue/White
+    const sidebarBg = '#0d2331'; 
+    const contentBg = '#eef5f9'; 
 
     return (
       <li className="relative mb-1">
