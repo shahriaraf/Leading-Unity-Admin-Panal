@@ -2,14 +2,23 @@ import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
 // --- Helper: Get Supervisor Abbreviation (Strict) ---
-const getSupLabel = (sup) => {
+const getSupLabel = (sup, allSupervisors = []) => {
   if (!sup) return 'N/A';
-  // 1. Check if 'abbreviation' exists and is not empty string
-  if (sup.abbreviation && sup.abbreviation.trim() !== '') {
-      return sup.abbreviation;
+
+  // 1. If it's already an object (Populated)
+  if (typeof sup === 'object' && sup.name) {
+    return sup.abbreviation || sup.name;
   }
-  // 2. Fallback to Name if no abbreviation
-  return sup.name || 'Unknown';
+
+  // 2. If it's just an ID string, find it in the list
+  if (allSupervisors.length > 0) {
+    const found = allSupervisors.find(s => s._id === sup);
+    if (found) {
+        return found.abbreviation || found.name;
+    }
+  }
+
+  return 'Unknown';
 };
 
 // --- Helper: Format Time Range ---
@@ -32,7 +41,7 @@ const formatDateHeader = (isoDate) => {
 // =============================================================================
 // 1. MAIN REPORT (Detailed Marks & Info)
 // =============================================================================
-export const generateMainReport = async (proposals, evalConfig, courseFilter = null) => {
+export const generateMainReport = async (proposals, evalConfig, allSupervisors, courseFilter = null) => {
   let data = courseFilter ? proposals.filter(p => p.course?._id === courseFilter._id) : proposals;
   if (!data.length) throw new Error('NO_DATA');
 
@@ -43,6 +52,7 @@ export const generateMainReport = async (proposals, evalConfig, courseFilter = n
   // Define Columns
   worksheet.columns = [
     { header: 'ID', key: 'sn', width: 6 },
+    { header: 'Course', key: 'c', width: 12 }, // 🟢 Added Course Column
     { header: 'Title', key: 'title', width: 35 },
     { header: 'Team Members', key: 'count', width: 15 },
     { header: 'Name', key: 'name', width: 25 },
@@ -77,12 +87,11 @@ export const generateMainReport = async (proposals, evalConfig, courseFilter = n
     if (team.length === 0) return;
 
     const startRow = currentRow;
-    // 🟢 Debug: Check console to see what 'assignedSupervisor' object looks like
-    console.log("Processing Supervisor:", item.assignedSupervisor); 
-    const supStr = getSupLabel(item.assignedSupervisor);
+    const supStr = getSupLabel(item.assignedSupervisor, allSupervisors);
     const linkStr = item.description || 'N/A';
     const count = team.length;
     const allMarks = item.marks || [];
+    const courseCode = item.course?.courseCode || 'N/A';
 
     team.forEach((m) => {
       const ownMark = allMarks.find(mk => mk.studentId === m.studentId && mk.type === 'own');
@@ -112,6 +121,7 @@ export const generateMainReport = async (proposals, evalConfig, courseFilter = n
       const row = worksheet.getRow(currentRow);
       row.values = {
         sn: serial,
+        c: courseCode, // Course Value
         title: item.title,
         count: count,
         name: m.name,
@@ -124,7 +134,7 @@ export const generateMainReport = async (proposals, evalConfig, courseFilter = n
         o1, o2, ot, d1, d2, dt, gt
       };
       
-      ['sn', 'count', 'sid', 'sup', 'cgpa', 'o1', 'o2', 'ot', 'd1', 'd2', 'dt', 'gt'].forEach(k => {
+      ['sn', 'c', 'count', 'sid', 'sup', 'cgpa', 'o1', 'o2', 'ot', 'd1', 'd2', 'dt', 'gt'].forEach(k => {
          row.getCell(k).alignment = { vertical: 'middle', horizontal: 'center' };
       });
       ['title', 'name', 'email', 'link'].forEach(k => {
@@ -141,11 +151,12 @@ export const generateMainReport = async (proposals, evalConfig, courseFilter = n
     const endRow = currentRow - 1;
 
     if (startRow <= endRow) {
-      worksheet.mergeCells(`A${startRow}:A${endRow}`);
-      worksheet.mergeCells(`B${startRow}:B${endRow}`);
-      worksheet.mergeCells(`C${startRow}:C${endRow}`);
-      worksheet.mergeCells(`F${startRow}:F${endRow}`);
-      worksheet.mergeCells(`J${startRow}:J${endRow}`);
+      worksheet.mergeCells(`A${startRow}:A${endRow}`); // ID
+      worksheet.mergeCells(`B${startRow}:B${endRow}`); // Course
+      worksheet.mergeCells(`C${startRow}:C${endRow}`); // Title
+      worksheet.mergeCells(`D${startRow}:D${endRow}`); // Count
+      worksheet.mergeCells(`G${startRow}:G${endRow}`); // Supervisor
+      worksheet.mergeCells(`K${startRow}:K${endRow}`); // Drive Link
     }
 
     serial++;
@@ -159,7 +170,7 @@ export const generateMainReport = async (proposals, evalConfig, courseFilter = n
 // =============================================================================
 // 2. DEFENSE SCHEDULE REPORT (Printable)
 // =============================================================================
-export const generateDefenseSchedule = async (proposals, courseFilter = null) => {
+export const generateDefenseSchedule = async (proposals, allSupervisors, courseFilter = null) => {
   let data = courseFilter ? proposals.filter(p => p.course?._id === courseFilter._id) : proposals;
   
   data = data.filter(p => p.defenseDate).sort((a, b) => new Date(a.defenseDate) - new Date(b.defenseDate));
@@ -212,7 +223,7 @@ export const generateDefenseSchedule = async (proposals, courseFilter = null) =>
 
     const startRow = currentRow;
     const timeStr = formatTimeRange(item.defenseDate, item.defenseEndDate);
-    const supStr = getSupLabel(item.assignedSupervisor); // Uses the updated Helper
+    const supStr = getSupLabel(item.assignedSupervisor, allSupervisors);
 
     team.forEach((m) => {
       const row = worksheet.getRow(currentRow);
