@@ -380,21 +380,21 @@ const SubmissionsPage = () => {
                        ) : <span className="text-xs text-gray-400 italic">--</span>}
                     </td>
 
-                    {/* Assign Supervisor (Abbreviation) */}
-                    <td className="px-6 py-4 align-top w-[200px]">
+                    {/* Assign Supervisor */}
+                    <td className="px-6 py-4 align-top min-w-[160px]">
                        <select 
-                         className={`block w-full py-2 pl-3 pr-8 text-xs font-medium border rounded-lg shadow-sm ${proposal.assignedSupervisor ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-white border-gray-200 text-gray-500'}`}
+                         className={`block w-full min-w-0 py-2 pl-3 pr-8 text-xs font-medium border rounded-lg shadow-sm ${proposal.assignedSupervisor ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-white border-gray-200 text-gray-500'}`}
                          value={proposal.assignedSupervisor?._id || ""}
                          onChange={(e) => handleAssignSupervisor(proposal._id, e.target.value)}
                          disabled={proposal.status !== 'approved'}
                        >
                           <option value="" disabled>Select</option>
                           {allSupervisors.map(sup => {
-                              // 🟢 Logic Re-added: Check Preference
                               const isPreferred = proposal.supervisors?.some(s => s._id === sup._id);
+                              const label = `${sup.abbreviation || sup.name}${isPreferred ? ' (Pref)' : ''}`;
                               return (
-                                  <option key={sup._id} value={sup._id} className={isPreferred ? "font-bold text-indigo-600 bg-indigo-50" : "text-gray-700"}>
-                                      {sup.abbreviation || sup.name} {isPreferred ? '(Pref)' : ''}
+                                  <option key={sup._id} value={sup._id}>
+                                      {label}
                                   </option>
                               );
                           })}
