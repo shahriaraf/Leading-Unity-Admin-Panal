@@ -3,6 +3,7 @@ import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
+import { CalendarCheck } from 'lucide-react';
 
 // ... (Timezone helpers remain the same) ...
 const toBDDate = (isoString) => {
@@ -59,7 +60,7 @@ const DefenseScheduler = ({ proposal, onSave }) => {
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center w-full px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 transition-all text-left"
       >
-        <span className="mr-2 text-purple-500">📅</span>
+        <span className="mr-2 text-purple-500"><CalendarCheck className='text-xs'></CalendarCheck></span>
         <span className="truncate">{displayString}</span>
       </button>
 

@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import { api } from './api';
 import { generateMainReport, generateDefenseSchedule } from './ExcelSheets'; // Updated imports
 import { Icon, ICONS, ModernCard } from './Ui';
+import { CalendarCheck } from 'lucide-react';
 
 const DataExport = ({ courses, evalConfig }) => {
   const [exporting, setExporting] = React.useState(false);
@@ -36,7 +37,7 @@ const DataExport = ({ courses, evalConfig }) => {
     <ModernCard title="Data Export" subtitle="Generate Excel reports & schedules." icon={<Icon path={ICONS.download} />} accentColor="blue">
       
       {/* --- Master Actions --- */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-1 gap-4 mb-6">
         <button
           onClick={() => handleExport('main', null)} disabled={exporting}
           className="py-3 bg-slate-900 text-white rounded-xl font-bold shadow-lg shadow-slate-300 hover:bg-slate-800 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-70"
@@ -47,7 +48,7 @@ const DataExport = ({ courses, evalConfig }) => {
           onClick={() => handleExport('schedule', null)} disabled={exporting}
           className="py-3 bg-white border-2 border-slate-200 text-slate-700 rounded-xl font-bold hover:border-indigo-500 hover:text-indigo-600 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-70"
         >
-          {exporting ? <span className="animate-pulse">...</span> : <><Icon path={ICONS.calendar} /> Defense Schedule</>}
+          {exporting ? <span className="animate-pulse">...</span> : <><CalendarCheck></CalendarCheck> Defense Schedule</>}
         </button>
       </div>
 
@@ -62,7 +63,6 @@ const DataExport = ({ courses, evalConfig }) => {
         {courses.length > 0 ? courses.map(c => (
            <div key={c._id} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-lg group hover:border-blue-200 transition-all">
               <div className="flex items-center gap-3">
-                 <div className="p-1.5 bg-white rounded-md text-indigo-500"><Icon path={ICONS.file} className="w-4 h-4"/></div>
                  <span className="text-sm font-bold text-slate-600">{c.courseCode}</span>
               </div>
               <div className="flex gap-2">

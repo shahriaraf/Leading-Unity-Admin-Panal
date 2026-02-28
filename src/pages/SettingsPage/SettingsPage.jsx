@@ -27,15 +27,16 @@ const DeadlinePickerStyles = () => (
     .deadline-picker-wrapper .react-datepicker__input-container { width: 100%; }
     .deadline-picker-wrapper .react-datepicker__close-icon { right: 8px; }
     .deadline-picker-wrapper .react-datepicker__close-icon::after {
-      background-color: #94a3b8;
+      background-color: #f8f8f8;
       border-radius: 50%;
-      font-size: 12px;
+      color: #ef4444;
+      font-size: 20px;
       width: 16px;
       height: 16px;
       line-height: 16px;
     }
     .deadline-picker-wrapper .react-datepicker__close-icon:hover::after {
-      background-color: #64748b;
+      background-color: #e9e9e9;
     }
     .react-datepicker-popper { z-index: 9999 !important; }
     .react-datepicker {
