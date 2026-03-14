@@ -80,7 +80,6 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
   headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
 
   let currentRow = 2;
-  let serial = 1;
 
   data.forEach((item) => {
     const team = item.teamMembers || [];
@@ -120,7 +119,7 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
 
       const row = worksheet.getRow(currentRow);
       row.values = {
-        sn: serial,
+        sn: item.serialNumber ?? '—',
         c: courseCode, // Course Value
         title: item.title,
         count: count,
@@ -159,7 +158,6 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
       worksheet.mergeCells(`K${startRow}:K${endRow}`); // Drive Link
     }
 
-    serial++;
   });
 
   const buffer = await workbook.xlsx.writeBuffer();
@@ -200,7 +198,6 @@ export const generateDefenseSchedule = async (proposals, allSupervisors, courseF
   });
 
   let currentRow = 2;
-  let serial = 1;
   let lastDateStr = '';
 
   data.forEach((item) => {
@@ -228,7 +225,7 @@ export const generateDefenseSchedule = async (proposals, allSupervisors, courseF
     team.forEach((m) => {
       const row = worksheet.getRow(currentRow);
       row.values = {
-        sn: serial,
+        sn: item.serialNumber ?? '—',
         time: timeStr,
         id: m.studentId,
         name: m.name,
@@ -266,7 +263,6 @@ export const generateDefenseSchedule = async (proposals, allSupervisors, courseF
       worksheet.mergeCells(`G${startRow}:G${endRow}`);
     }
 
-    serial++;
   });
 
   const buffer = await workbook.xlsx.writeBuffer();

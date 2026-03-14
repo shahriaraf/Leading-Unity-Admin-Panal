@@ -8,34 +8,41 @@ import { CalendarCheck } from 'lucide-react';
 const DataExport = ({ courses, evalConfig }) => {
   const [exporting, setExporting] = React.useState(false);
 
-  // Generic handler for both report types
   const handleExport = async (type, courseFilter = null) => {
     setExporting(true);
     const label = type === 'main' ? 'Full Report' : 'Schedule';
     const toastId = toast.loading(`Generating ${label}...`);
 
     try {
-      const { data: proposals } = await api.get('proposals');
-      
+      const [{ data: proposals }, { data: users }] = await Promise.all([
+        api.get('proposals'),
+        api.get('users'),
+      ]);
+
+      // Build allSupervisors from the users list
+      const allSupervisors = users.filter(u => u.role === 'supervisor');
+
       if (type === 'main') {
-        await generateMainReport(proposals, evalConfig, courseFilter);
+        await generateMainReport(proposals, evalConfig, allSupervisors, courseFilter);
       } else {
-        await generateDefenseSchedule(proposals, courseFilter);
+        await generateDefenseSchedule(proposals, allSupervisors, courseFilter);
       }
 
       toast.success("Downloaded!", { id: toastId });
     } catch (err) {
       console.error(err);
-      if (err.message === 'NO_DATA') toast.error("No data found.", { id: toastId });
+      if (err.message === 'NO_DATA') toast.error("No data found for this course.", { id: toastId });
       else toast.error("Export Failed", { id: toastId });
     } finally {
       setExporting(false);
     }
   };
 
+  // rest of component unchanged...
+
   return (
     <ModernCard title="Data Export" subtitle="Generate Excel reports & schedules." icon={<Icon path={ICONS.download} />} accentColor="blue">
-      
+
       {/* --- Master Actions --- */}
       <div className="grid grid-cols-1 gap-4 mb-6">
         <button
@@ -61,27 +68,27 @@ const DataExport = ({ courses, evalConfig }) => {
 
       <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto pr-1">
         {courses.length > 0 ? courses.map(c => (
-           <div key={c._id} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-lg group hover:border-blue-200 transition-all">
-              <div className="flex items-center gap-3">
-                 <span className="text-sm font-bold text-slate-600">{c.courseCode}</span>
-              </div>
-              <div className="flex gap-2">
-                 <button 
-                   onClick={() => handleExport('main', c)} 
-                   disabled={exporting}
-                   className="px-3 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors disabled:opacity-50"
-                 >
-                   Report
-                 </button>
-                 <button 
-                   onClick={() => handleExport('schedule', c)} 
-                   disabled={exporting}
-                   className="px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:border-slate-400 rounded-md transition-colors disabled:opacity-50"
-                 >
-                   Schedule
-                 </button>
-              </div>
-           </div>
+          <div key={c._id} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-lg group hover:border-blue-200 transition-all">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-bold text-slate-600">{c.courseCode}</span>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleExport('main', c)}
+                disabled={exporting}
+                className="px-3 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors disabled:opacity-50"
+              >
+                Report
+              </button>
+              <button
+                onClick={() => handleExport('schedule', c)}
+                disabled={exporting}
+                className="px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:border-slate-400 rounded-md transition-colors disabled:opacity-50"
+              >
+                Schedule
+              </button>
+            </div>
+          </div>
         )) : <p className="text-xs text-center text-slate-400 py-4 italic">No courses available</p>}
       </div>
     </ModernCard>
