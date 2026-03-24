@@ -112,7 +112,7 @@ const CoursesPage = () => {
   );
 
   return (
-    <div className="min-h-screen p-6 md:p-10">
+    <div className="min-h-screen p-6 md:p-2">
       <Toaster position="top-right" />
 
       {/* Header */}

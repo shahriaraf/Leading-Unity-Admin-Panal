@@ -1,17 +1,19 @@
 import React from 'react';
 import toast from 'react-hot-toast';
 import { api } from './api';
-import { generateMainReport, generateDefenseSchedule } from './ExcelSheets'; // Updated imports
+import { generateMainReport, generateDefenseSchedule, generateRequestsReport } from './ExcelSheets'; // Updated imports
 import { Icon, ICONS, ModernCard } from './Ui';
-import { CalendarCheck } from 'lucide-react';
+import { CalendarCheck, UserPlus } from 'lucide-react';
 
 const DataExport = ({ courses, evalConfig }) => {
   const [exporting, setExporting] = React.useState(false);
 
   const handleExport = async (type, courseFilter = null) => {
     setExporting(true);
-    const label = type === 'main' ? 'Full Report' : 'Schedule';
-    const toastId = toast.loading(`Generating ${label}...`);
+  // Dynamic labels for the toast
+    const labels = { main: 'Full Report', schedule: 'Schedule', requests: 'Team Requests' };
+    const toastId = toast.loading(`Generating ${labels[type]}...`);
+    
 
     try {
       const [{ data: proposals }, { data: users }] = await Promise.all([
@@ -22,10 +24,13 @@ const DataExport = ({ courses, evalConfig }) => {
       // Build allSupervisors from the users list
       const allSupervisors = users.filter(u => u.role === 'supervisor');
 
+      // Routing to correct generator
       if (type === 'main') {
         await generateMainReport(proposals, evalConfig, allSupervisors, courseFilter);
-      } else {
+      } else if (type === 'schedule') {
         await generateDefenseSchedule(proposals, allSupervisors, courseFilter);
+      } else if (type === 'requests') {
+        await generateRequestsReport(proposals, courseFilter);
       }
 
       toast.success("Downloaded!", { id: toastId });
@@ -57,6 +62,13 @@ const DataExport = ({ courses, evalConfig }) => {
         >
           {exporting ? <span className="animate-pulse">...</span> : <><CalendarCheck></CalendarCheck> Defense Schedule</>}
         </button>
+        <button
+          onClick={() => handleExport('requests', null)} 
+          disabled={exporting}
+          className="py-3 bg-orange-50 text-orange-700 border-2 border-orange-200 rounded-xl font-bold hover:bg-orange-100 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-70"
+        >
+          {exporting ? <span className="animate-pulse">...</span> : <><UserPlus size={18}/> Team Requests (Incomplete)</>}
+        </button>
       </div>
 
       {/* --- Course List --- */}
@@ -86,6 +98,13 @@ const DataExport = ({ courses, evalConfig }) => {
                 className="px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:border-slate-400 rounded-md transition-colors disabled:opacity-50"
               >
                 Schedule
+              </button>
+              <button
+                onClick={() => handleExport('requests', c)}
+                disabled={exporting}
+                className="px-2 py-1.5 text-[10px] font-bold text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-md transition-colors"
+              >
+                Requests
               </button>
             </div>
           </div>

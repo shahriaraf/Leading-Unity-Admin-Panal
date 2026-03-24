@@ -13,7 +13,7 @@ const ToggleCard = ({ title, isOpen, onToggle, openLabel, closedLabel, openBtnLa
     : 'bg-slate-800 text-white hover:bg-slate-700 shadow-slate-200';
 
   return (
-    <div className={`relative overflow-hidden rounded-3xl p-6 shadow-sm border transition-all duration-500 ${cardBg}`}>
+    <div className={`relative overflow-hidden rounded-3xl border border-emerald-200 p-6 shadow-sm transition-all duration-500 ${cardBg}`}>
       <div className="flex justify-between items-start mb-8">
         <div>
           <h3 className={`text-lg font-bold ${titleColor}`}>{title}</h3>

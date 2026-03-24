@@ -305,7 +305,7 @@ const SubmissionsPage = () => {
   const [allSupervisors, setAllSupervisors] = useState([]);
   const [coursesList, setCoursesList] = useState([]);
   const [loading, setLoading] = useState(true);
-
+  const [activeTab, setActiveTab] = useState("official");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [courseFilter, setCourseFilter] = useState("all");
@@ -346,6 +346,13 @@ const SubmissionsPage = () => {
 
   useEffect(() => {
     let result = proposals;
+    if (activeTab === "official") {
+      // Only show teams that met the 3-4 member criteria (and thus have an SN)
+      result = result.filter((p) => p.serialNumber !== null);
+    } else {
+      // Show "Team Requests" (less than 3 members)
+      result = result.filter((p) => p.serialNumber === null);
+    }
     if (statusFilter !== "all")
       result = result.filter((p) => p.status === statusFilter);
     if (courseFilter !== "all")
@@ -361,7 +368,7 @@ const SubmissionsPage = () => {
       );
     }
     setFilteredProposals(sortProposalsByDate(result));
-  }, [searchTerm, statusFilter, courseFilter, proposals]);
+  }, [searchTerm, statusFilter, courseFilter, proposals, activeTab]);
 
   const handleDateUpdate = async (start, end, proposalId) => {
     const utcStart = fromBDToUTC(start).toISOString();
@@ -589,7 +596,7 @@ const SubmissionsPage = () => {
   );
 
   return (
-    <div className="min-h-screen p-6 md:p-10 bg-gray-50/30 font-sans">
+    <div className="min-h-screen p-6 md:p-2 font-sans">
       <GlobalDatePickerStyles />
       <Toaster position="top-right" />
 
@@ -605,7 +612,30 @@ const SubmissionsPage = () => {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative group min-w-[240px]">
+          <div className="flex bg-gray-200/50 rounded-xl w-fit">
+            <button
+              onClick={() => setActiveTab("official")}
+              className={`px-5 py-1 text-[11px] font-bold rounded-lg transition-all ${activeTab === "official"
+                  ? "bg-white text-indigo-600 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+                }`}
+            >
+              Official Teams
+            </button>
+            <button
+              onClick={() => setActiveTab("requests")}
+              className={`px-5 py-1 text-[11px] font-bold rounded-lg transition-all ${activeTab === "requests"
+                  ? "bg-white text-orange-600 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+                }`}
+            >
+              Team Requests
+              <span className="ml-2 px-1.5 py-0.5 text-[10px] bg-orange-100 text-orange-600 rounded-full">
+                {proposals.filter(p => p.serialNumber === null).length}
+              </span>
+            </button>
+          </div>
+          <div className="relative group min-w-[140px]">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400 group-focus-within:text-indigo-500 transition-colors">
               <SearchIcon />
             </div>

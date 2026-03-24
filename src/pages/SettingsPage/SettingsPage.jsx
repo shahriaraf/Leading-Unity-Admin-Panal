@@ -181,7 +181,7 @@ const SettingsPage = () => {
         : "bg-slate-200";
 
   return (
-    <div className="min-h-screen p-4 sm:p-6 md:p-8 font-sans selection:bg-indigo-100 selection:text-indigo-900">
+    <div className="min-h-screen p-4 sm:p-6 md:p-2 font-sans selection:bg-indigo-100 selection:text-indigo-900">
       <DeadlinePickerStyles />
       <Toaster
         position="top-right"

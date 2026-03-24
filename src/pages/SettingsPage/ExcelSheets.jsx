@@ -268,3 +268,83 @@ export const generateDefenseSchedule = async (proposals, allSupervisors, courseF
   const buffer = await workbook.xlsx.writeBuffer();
   saveAs(new Blob([buffer]), `Defense_Schedule_${sheetName}.xlsx`);
 };
+
+
+
+
+// =============================================================================
+// 3. TEAM REQUESTS REPORT (Incomplete Teams < 3)
+// =============================================================================
+export const generateRequestsReport = async (proposals, courseFilter = null) => {
+  // Filter for ONLY requests (SN is null) and optionally by course
+  let data = proposals.filter(p => p.serialNumber === null);
+  if (courseFilter) {
+    data = data.filter(p => p.course?._id === courseFilter._id);
+  }
+
+  if (!data.length) throw new Error('NO_DATA');
+
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Team Requests');
+
+  worksheet.columns = [
+    { header: 'Course', key: 'course', width: 12 },
+    { header: 'Project Title', key: 'title', width: 35 },
+    { header: 'Role', key: 'role', width: 10 },
+    { header: 'Student Name', key: 'name', width: 25 },
+    { header: 'Student ID', key: 'sid', width: 18 },
+    { header: 'Email', key: 'email', width: 30 },
+    { header: 'Phone', key: 'phone', width: 15 },
+    { header: 'Current Size', key: 'size', width: 12 },
+  ];
+
+  // Styling
+  const headerRow = worksheet.getRow(1);
+  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE67E22' } }; // Orange color for requests
+
+  let currentRow = 2;
+
+  data.forEach((item) => {
+    const leader = item.student; // Populated leader object
+    const members = item.teamMembers || [];
+    const totalSize = members.length + 1;
+    const startRow = currentRow;
+
+    // Add Leader Row
+    worksheet.addRow({
+      course: item.course?.courseCode || 'N/A',
+      title: item.title,
+      role: 'LEADER',
+      name: leader?.name || 'N/A',
+      sid: leader?.studentId || 'N/A',
+      email: leader?.email || 'N/A',
+      phone: leader?.mobile || 'N/A',
+      size: totalSize
+    });
+    currentRow++;
+
+    // Add Member Rows
+    members.forEach(m => {
+      worksheet.addRow({
+        role: 'MEMBER',
+        name: m.name,
+        sid: m.studentId,
+        email: m.email || 'N/A',
+        phone: m.mobile || 'N/A',
+      });
+      currentRow++;
+    });
+
+    // Merge shared project info
+    const endRow = currentRow - 1;
+    if (startRow < endRow) {
+      worksheet.mergeCells(`A${startRow}:A${endRow}`);
+      worksheet.mergeCells(`B${startRow}:B${endRow}`);
+      worksheet.mergeCells(`H${startRow}:H${endRow}`);
+    }
+  });
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  saveAs(new Blob([buffer]), `Team_Requests_Report.xlsx`);
+};
