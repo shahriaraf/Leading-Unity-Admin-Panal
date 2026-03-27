@@ -310,7 +310,7 @@ const SubmissionsPage = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [courseFilter, setCourseFilter] = useState("all");
 
-  const fetchData = async () => {
+const fetchData = async () => {
     try {
       const config = getAuthHeader();
       const [proposalsRes, usersRes] = await Promise.all([
@@ -325,11 +325,8 @@ const SubmissionsPage = () => {
         ...new Set(rawData.map((p) => p.course?.courseCode).filter(Boolean)),
       ]);
 
-      // REPLACE the chronologicallySorted + dataWithSerial block with this:
-      const displaySorted = sortProposalsByDate(rawData); // ✅ DB serialNumber preserved
-
-      setProposals(displaySorted);
-      setFilteredProposals(displaySorted);
+      // Sort by defense date for the UI, but leave serialNumber untouched
+      const displaySorted = sortProposalsByDate(rawData);
 
       setProposals(displaySorted);
       setFilteredProposals(displaySorted);
@@ -344,19 +341,31 @@ const SubmissionsPage = () => {
     fetchData();
   }, []);
 
-  useEffect(() => {
-    let result = proposals;
+useEffect(() => {
+    let result = [...proposals];
+
     if (activeTab === "official") {
-      // Only show teams that met the 3-4 member criteria (and thus have an SN)
-      result = result.filter((p) => p.serialNumber !== null);
+      // Logic: Must have a serialNumber AND 3-4 members (matches NestJS)
+      result = result.filter((p) => {
+        const memberCount = (p.teamMembers ?? []).length;
+        return p.serialNumber !== null && memberCount >= 3 && memberCount <= 4;
+      });
     } else {
-      // Show "Team Requests" (less than 3 members)
+      // Logic: Team Requests are those where serialNumber is null (less than 3 members)
       result = result.filter((p) => p.serialNumber === null);
     }
-    if (statusFilter !== "all")
+
+    // Apply Status Filter
+    if (statusFilter !== "all") {
       result = result.filter((p) => p.status === statusFilter);
-    if (courseFilter !== "all")
+    }
+
+    // Apply Course Filter
+    if (courseFilter !== "all") {
       result = result.filter((p) => p.course?.courseCode === courseFilter);
+    }
+
+    // Apply Search Term
     if (searchTerm) {
       const lower = searchTerm.toLowerCase();
       result = result.filter(
@@ -364,9 +373,11 @@ const SubmissionsPage = () => {
           p.title.toLowerCase().includes(lower) ||
           p.course?.courseCode.toLowerCase().includes(lower) ||
           p.student?.name.toLowerCase().includes(lower) ||
-          p.student?.studentId.includes(lower),
+          p.student?.studentId.includes(lower)
       );
     }
+
+    // Always keep the Defense Date sort order for the schedule view
     setFilteredProposals(sortProposalsByDate(result));
   }, [searchTerm, statusFilter, courseFilter, proposals, activeTab]);
 

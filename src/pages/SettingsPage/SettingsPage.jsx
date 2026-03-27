@@ -108,13 +108,19 @@ const SettingsPage = () => {
   const makeToggle =
     (state, setState, endpoint, openMsg, closeMsg) => async () => {
       const newState = !state;
+
+      // 1. Optimistic Update (Immediate UI feedback)
       setState(newState);
+
       try {
-        await api.patch(`settings/${endpoint}`);
+        // 2. Send the explicit 'isOpen' value
+        await api.patch(`settings/${endpoint}`, { isOpen: newState });
         toast.success(newState ? openMsg : closeMsg);
-      } catch {
+      } catch (error) {
+        // 3. Rollback if the database update fails
         setState(state);
-        toast.error("Failed");
+        toast.error("Network error: Failed to sync with server");
+        console.error("Toggle Error:", error);
       }
     };
 
@@ -156,21 +162,21 @@ const SettingsPage = () => {
   // Deadline status config — avoids triple ternaries in JSX
   const deadlineStatus = isDeadlinePast
     ? {
-        icon: <Lock className="w-3.5 h-3.5" />,
-        color: "bg-rose-50 border-rose-100 text-rose-600",
-        label: `Closed · ${formatDeadline(submissionDeadline)}`,
-      }
+      icon: <Lock className="w-3.5 h-3.5" />,
+      color: "bg-rose-50 border-rose-100 text-rose-600",
+      label: `Closed · ${formatDeadline(submissionDeadline)}`,
+    }
     : isDeadlineSoon
       ? {
-          icon: <AlertTriangle className="w-3.5 h-3.5" />,
-          color: "bg-amber-50 border-amber-100 text-amber-600",
-          label: `Closing soon · ${formatDeadline(submissionDeadline)}`,
-        }
+        icon: <AlertTriangle className="w-3.5 h-3.5" />,
+        color: "bg-amber-50 border-amber-100 text-amber-600",
+        label: `Closing soon · ${formatDeadline(submissionDeadline)}`,
+      }
       : {
-          icon: <Clock className="w-3.5 h-3.5" />,
-          color: "bg-indigo-50 border-indigo-100 text-indigo-600",
-          label: `Closes · ${formatDeadline(submissionDeadline)}`,
-        };
+        icon: <Clock className="w-3.5 h-3.5" />,
+        color: "bg-indigo-50 border-indigo-100 text-indigo-600",
+        label: `Closes · ${formatDeadline(submissionDeadline)}`,
+      };
 
   const deadlineDotColor = isDeadlinePast
     ? "bg-rose-400"
