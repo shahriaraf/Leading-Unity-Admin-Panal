@@ -57,6 +57,12 @@ const SearchIcon = () => (
     />
   </svg>
 );
+// Add this icon helper at the top with your other icons
+const TrashIcon = () => (
+  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+  </svg>
+);
 const TeamIcon = () => (
   <svg
     className="w-3.5 h-3.5 text-gray-400 shrink-0"
@@ -310,7 +316,7 @@ const SubmissionsPage = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [courseFilter, setCourseFilter] = useState("all");
 
-const fetchData = async () => {
+  const fetchData = async () => {
     try {
       const config = getAuthHeader();
       const [proposalsRes, usersRes] = await Promise.all([
@@ -337,11 +343,35 @@ const fetchData = async () => {
     }
   };
 
+  const handleDelete = async (id) => {
+    const config = getAuthHeader();
+
+    // 2. Create the promise for the toast
+    const deletePromise = axios.delete(`${API_BASE}/proposals/${id}`, config);
+
+    // 3. Fire the toast notification
+    toast.promise(deletePromise, {
+      loading: 'Deleting submission...',
+      success: 'Submission permanently deleted.',
+      error: 'Could not delete submission. Please try again.',
+    });
+
+    try {
+      await deletePromise;
+      // 4. Update UI state immediately upon success
+      setProposals((prev) => prev.filter((p) => p._id !== id));
+    } catch (error) {
+      console.error("Delete error:", error);
+      // If it fails, fetchData to ensure UI is in sync with DB
+      fetchData();
+    }
+  };
+
   useEffect(() => {
     fetchData();
   }, []);
 
-useEffect(() => {
+  useEffect(() => {
     let result = [...proposals];
 
     if (activeTab === "official") {
@@ -587,22 +617,36 @@ useEffect(() => {
 
       {/* Actions */}
       <td className="px-6 py-4 text-right align-top whitespace-nowrap">
-        {proposal.status !== "rejected" ? (
+        <div className="flex justify-end gap-2">
+          {proposal.status !== "rejected" ? (
+            <button
+              onClick={() => handleStatusChange(proposal._id, "rejected")}
+              className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+              title="Reject"
+            >
+              <XIcon />
+            </button>
+          ) : (
+            <button
+              onClick={() => handleStatusChange(proposal._id, "approved")}
+              className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+              title="Approve"
+            >
+              <RestoreIcon />
+            </button>
+          )}
+
+          {/* New Delete Button */}
           <button
-            onClick={() => handleStatusChange(proposal._id, "rejected")}
-            className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg"
+            onClick={() => handleDelete(proposal._id)}
+            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+            title="Delete Permanently"
           >
-            <XIcon />
+            <TrashIcon /> {/* Use the SVG helper provided in the previous message */}
           </button>
-        ) : (
-          <button
-            onClick={() => handleStatusChange(proposal._id, "approved")}
-            className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg"
-          >
-            <RestoreIcon />
-          </button>
-        )}
+        </div>
       </td>
+
     </tr>
   );
 
@@ -627,8 +671,8 @@ useEffect(() => {
             <button
               onClick={() => setActiveTab("official")}
               className={`px-5 py-1 text-[11px] font-bold rounded-lg transition-all ${activeTab === "official"
-                  ? "bg-white text-indigo-600 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
+                ? "bg-white text-indigo-600 shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
                 }`}
             >
               Official Teams
@@ -636,8 +680,8 @@ useEffect(() => {
             <button
               onClick={() => setActiveTab("requests")}
               className={`px-5 py-1 text-[11px] font-bold rounded-lg transition-all ${activeTab === "requests"
-                  ? "bg-white text-orange-600 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
+                ? "bg-white text-orange-600 shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
                 }`}
             >
               Team Requests

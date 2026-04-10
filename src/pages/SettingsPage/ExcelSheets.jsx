@@ -42,8 +42,15 @@ const formatDateHeader = (isoDate) => {
 // 1. MAIN REPORT (Detailed Marks & Info)
 // =============================================================================
 export const generateMainReport = async (proposals, evalConfig, allSupervisors, courseFilter = null) => {
-  let data = courseFilter ? proposals.filter(p => p.course?._id === courseFilter._id) : proposals;
-// 🟢 FIX: Sort data so serial 1 comes first, then 2, 3, etc.
+  // 1. Filter: Course + ONLY include teams with 3 or 4 members
+  let data = proposals.filter(p => {
+    const memberCount = (p.teamMembers || []).length;
+    const matchesCourse = courseFilter ? p.course?._id === courseFilter._id : true;
+    const isOfficialTeam = memberCount >= 3 && memberCount <= 4;
+    return matchesCourse && isOfficialTeam;
+  });
+
+  // 2. Sort: Serial 1, 2, 3...
   data.sort((a, b) => {
     const snA = a.serialNumber ?? 0;
     const snB = b.serialNumber ?? 0;
@@ -56,27 +63,26 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
   const sheetName = courseFilter ? courseFilter.courseCode : 'Master Sheet';
   const worksheet = workbook.addWorksheet(sheetName.substring(0, 30));
 
-  // Define Columns
+  // Define Columns (Added Individual Marks column)
   worksheet.columns = [
     { header: 'ID', key: 'sn', width: 6 },
-    { header: 'Course', key: 'c', width: 12 }, // 🟢 Added Course Column
+    { header: 'Course', key: 'c', width: 12 },
     { header: 'Title', key: 'title', width: 35 },
     { header: 'Team Members', key: 'count', width: 15 },
     { header: 'Name', key: 'name', width: 25 },
     { header: 'Student ID', key: 'sid', width: 18 },
-    { header: 'Supervisor', key: 'sup', width: 15 }, // Abbr
+    { header: 'Supervisor', key: 'sup', width: 15 },
     { header: 'CGPA', key: 'cgpa', width: 10 },
     { header: 'Email', key: 'email', width: 30 },
     { header: 'Phone', key: 'phone', width: 15 },
     { header: 'Proposal Drive Link', key: 'link', width: 40 },
-
-    // Marks
     { header: `Sup: ${evalConfig.ownTeamCriteria1Name}`, key: 'o1', width: 12 },
     { header: `Sup: ${evalConfig.ownTeamCriteria2Name}`, key: 'o2', width: 12 },
     { header: 'Sup Total', key: 'ot', width: 10 },
+    { header: 'Board Individual Marks', key: 'indiv', width: 22 }, // Each supervisor's total
     { header: `Def: ${evalConfig.criteria1Name} (Avg)`, key: 'd1', width: 12 },
     { header: `Def: ${evalConfig.criteria2Name} (Avg)`, key: 'd2', width: 12 },
-    { header: 'Def Tot', key: 'dt', width: 10 },
+    { header: 'Def Tot (Avg)', key: 'dt', width: 12 },
     { header: 'Grand Total', key: 'gt', width: 12 },
   ];
 
@@ -90,11 +96,8 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
 
   data.forEach((item) => {
     const team = item.teamMembers || [];
-    if (team.length === 0) return;
-
     const startRow = currentRow;
     const supStr = getSupLabel(item.assignedSupervisor, allSupervisors);
-    const linkStr = item.description || 'N/A';
     const count = team.length;
     const allMarks = item.marks || [];
     const courseCode = item.course?.courseCode || 'N/A';
@@ -103,19 +106,27 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
       const ownMark = allMarks.find(mk => mk.studentId === m.studentId && mk.type === 'own');
       const defMarks = allMarks.filter(mk => mk.studentId === m.studentId && mk.type === 'defense');
 
-      let o1 = '-', o2 = '-', ot = '-', d1 = '-', d2 = '-', dt = '-', gt = '-';
+      let o1 = '-', o2 = '-', ot = '-', d1 = '-', d2 = '-', dt = '-', gt = '-', indiv = '-';
       let valO1 = 0, valO2 = 0, valDT = 0;
 
+      // Own Supervisor Calculations
       if (ownMark) {
         if (ownMark.isAbsent) { o1 = 'Abs'; o2 = 'Abs'; ot = '0'; }
-        else { valO1 = ownMark.criteria1; valO2 = ownMark.criteria2; o1 = valO1; o2 = valO2; ot = valO1 + valO2; }
+        else { 
+            valO1 = ownMark.criteria1; valO2 = ownMark.criteria2; 
+            o1 = valO1; o2 = valO2; ot = valO1 + valO2; 
+        }
       }
 
+      // Board Defense Calculations
       if (defMarks.length > 0) {
-        const p = defMarks.filter(mk => !mk.isAbsent);
-        if (p.length > 0) {
-          const s1 = p.reduce((acc, c) => acc + c.criteria1, 0) / p.length;
-          const s2 = p.reduce((acc, c) => acc + c.criteria2, 0) / p.length;
+        // Show only marks, comma separated (e.g. 15, 14, 16)
+        indiv = defMarks.map(mk => mk.isAbsent ? 'Abs' : (mk.criteria1 + mk.criteria2)).join(', ');
+
+        const present = defMarks.filter(mk => !mk.isAbsent);
+        if (present.length > 0) {
+          const s1 = present.reduce((acc, c) => acc + c.criteria1, 0) / present.length;
+          const s2 = present.reduce((acc, c) => acc + c.criteria2, 0) / present.length;
           valDT = s1 + s2;
           d1 = s1.toFixed(1); d2 = s2.toFixed(1); dt = valDT.toFixed(1);
         } else { d1 = 'Abs'; d2 = 'Abs'; dt = '0'; }
@@ -125,9 +136,15 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
       gt = grand.toFixed(1);
 
       const row = worksheet.getRow(currentRow);
+
+      // Create Hyperlink for Drive Link
+      const driveLinkValue = (item.description && item.description.startsWith('http')) 
+        ? { text: 'View Proposal', hyperlink: item.description }
+        : item.description || 'N/A';
+
       row.values = {
         sn: item.serialNumber ?? '—',
-        c: courseCode, // Course Value
+        c: courseCode,
         title: item.title,
         count: count,
         name: m.name,
@@ -136,13 +153,21 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
         cgpa: m.cgpa || '-',
         email: m.email || '-',
         phone: m.mobile || '-',
-        link: linkStr,
-        o1, o2, ot, d1, d2, dt, gt
+        link: driveLinkValue,
+        o1, o2, ot, indiv, d1, d2, dt, gt
       };
 
-      ['sn', 'c', 'count', 'sid', 'sup', 'cgpa', 'o1', 'o2', 'ot', 'd1', 'd2', 'dt', 'gt'].forEach(k => {
+      // Styling: Center text for small values
+      ['sn', 'c', 'count', 'sid', 'sup', 'cgpa', 'o1', 'o2', 'ot', 'indiv', 'd1', 'd2', 'dt', 'gt'].forEach(k => {
         row.getCell(k).alignment = { vertical: 'middle', horizontal: 'center' };
       });
+
+      // Styling: Blue Hyperlink
+      if (item.description && item.description.startsWith('http')) {
+        const linkCell = row.getCell('link');
+        linkCell.font = { color: { argb: 'FF0000FF' }, underline: true };
+      }
+
       ['title', 'name', 'email', 'link'].forEach(k => {
         row.getCell(k).alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
       });
@@ -155,16 +180,12 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
     });
 
     const endRow = currentRow - 1;
-
     if (startRow <= endRow) {
-      worksheet.mergeCells(`A${startRow}:A${endRow}`); // ID
-      worksheet.mergeCells(`B${startRow}:B${endRow}`); // Course
-      worksheet.mergeCells(`C${startRow}:C${endRow}`); // Title
-      worksheet.mergeCells(`D${startRow}:D${endRow}`); // Count
-      worksheet.mergeCells(`G${startRow}:G${endRow}`); // Supervisor
-      worksheet.mergeCells(`K${startRow}:K${endRow}`); // Drive Link
+      // Merge common team fields
+      ['A', 'B', 'C', 'D', 'G', 'K'].forEach(col => {
+        worksheet.mergeCells(`${col}${startRow}:${col}${endRow}`);
+      });
     }
-
   });
 
   const buffer = await workbook.xlsx.writeBuffer();
