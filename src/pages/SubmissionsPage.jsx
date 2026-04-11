@@ -35,9 +35,21 @@ const fromBDToUTC = (bdDate) => {
 // 2. Then puts unscheduled items at the bottom
 const sortProposalsByDate = (list) =>
   [...list].sort((a, b) => {
-    if (!a.defenseDate) return 1;
-    if (!b.defenseDate) return -1;
-    return new Date(a.defenseDate) - new Date(b.defenseDate);
+    // If both have dates, compare them (Ascending: Earliest first)
+    if (a.defenseDate && b.defenseDate) {
+      const dateDiff = new Date(a.defenseDate) - new Date(b.defenseDate);
+      if (dateDiff !== 0) return dateDiff;
+
+      // If dates are identical, use Serial Number as a tie-breaker
+      return (a.serialNumber ?? 999) - (b.serialNumber ?? 999);
+    }
+
+    // Move items with dates to the top, nulls to the bottom
+    if (a.defenseDate) return -1;
+    if (b.defenseDate) return 1;
+
+    // If neither has a date, sort by Serial Number
+    return (a.serialNumber ?? 999) - (b.serialNumber ?? 999);
   });
 
 // --- Icons ---
@@ -327,15 +339,15 @@ const SubmissionsPage = () => {
       setAllSupervisors(usersRes.data.filter((u) => u.role === "supervisor"));
 
       const rawData = proposalsRes.data;
+      // Apply the strict chronological sort immediately
       setCoursesList([
         ...new Set(rawData.map((p) => p.course?.courseCode).filter(Boolean)),
       ]);
 
-      // Sort by defense date for the UI, but leave serialNumber untouched
-      const displaySorted = sortProposalsByDate(rawData);
 
-      setProposals(displaySorted);
-      setFilteredProposals(displaySorted);
+      const sortedData = sortProposalsByDate(rawData);
+      setProposals(sortedData);
+      setFilteredProposals(sortedData);
     } catch {
       toast.error("Could not load data.");
     } finally {
@@ -415,12 +427,13 @@ const SubmissionsPage = () => {
     const utcStart = fromBDToUTC(start).toISOString();
     const utcEnd = fromBDToUTC(end).toISOString();
 
+    // Map the new date then re-sort the entire list
     const updated = sortProposalsByDate(
       proposals.map((p) =>
         p._id === proposalId
           ? { ...p, defenseDate: utcStart, defenseEndDate: utcEnd }
           : p,
-      ),
+      )
     );
     setProposals(updated);
     setFilteredProposals(updated); // UI re-sorts, but Serial Number stays same

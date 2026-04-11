@@ -42,7 +42,6 @@ const formatDateHeader = (isoDate) => {
 // 1. MAIN REPORT (Detailed Marks & Info)
 // =============================================================================
 export const generateMainReport = async (proposals, evalConfig, allSupervisors, courseFilter = null) => {
-  // 1. Filter: Course + ONLY include teams with 3 or 4 members
   let data = proposals.filter(p => {
     const memberCount = (p.teamMembers || []).length;
     const matchesCourse = courseFilter ? p.course?._id === courseFilter._id : true;
@@ -50,20 +49,13 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
     return matchesCourse && isOfficialTeam;
   });
 
-  // 2. Sort: Serial 1, 2, 3...
-  data.sort((a, b) => {
-    const snA = a.serialNumber ?? 0;
-    const snB = b.serialNumber ?? 0;
-    return snA - snB;
-  });
-
+  data.sort((a, b) => (a.serialNumber ?? 0) - (b.serialNumber ?? 0));
   if (!data.length) throw new Error('NO_DATA');
 
   const workbook = new ExcelJS.Workbook();
   const sheetName = courseFilter ? courseFilter.courseCode : 'Master Sheet';
   const worksheet = workbook.addWorksheet(sheetName.substring(0, 30));
 
-  // Define Columns (Added Individual Marks column)
   worksheet.columns = [
     { header: 'ID', key: 'sn', width: 6 },
     { header: 'Course', key: 'c', width: 12 },
@@ -79,18 +71,16 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
     { header: `Sup: ${evalConfig.ownTeamCriteria1Name}`, key: 'o1', width: 12 },
     { header: `Sup: ${evalConfig.ownTeamCriteria2Name}`, key: 'o2', width: 12 },
     { header: 'Sup Total', key: 'ot', width: 10 },
-    { header: 'Board Individual Marks', key: 'indiv', width: 22 }, // Each supervisor's total
+    { header: 'Board Individual Marks', key: 'indiv', width: 22 },
     { header: `Def: ${evalConfig.criteria1Name} (Avg)`, key: 'd1', width: 12 },
     { header: `Def: ${evalConfig.criteria2Name} (Avg)`, key: 'd2', width: 12 },
     { header: 'Def Tot (Avg)', key: 'dt', width: 12 },
     { header: 'Grand Total', key: 'gt', width: 12 },
   ];
 
-  // Header Style
   const headerRow = worksheet.getRow(1);
-  headerRow.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
   headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
-  headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
 
   let currentRow = 2;
 
@@ -98,9 +88,7 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
     const team = item.teamMembers || [];
     const startRow = currentRow;
     const supStr = getSupLabel(item.assignedSupervisor, allSupervisors);
-    const count = team.length;
     const allMarks = item.marks || [];
-    const courseCode = item.course?.courseCode || 'N/A';
 
     team.forEach((m) => {
       const ownMark = allMarks.find(mk => mk.studentId === m.studentId && mk.type === 'own');
@@ -109,20 +97,13 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
       let o1 = '-', o2 = '-', ot = '-', d1 = '-', d2 = '-', dt = '-', gt = '-', indiv = '-';
       let valO1 = 0, valO2 = 0, valDT = 0;
 
-      // Own Supervisor Calculations
       if (ownMark) {
         if (ownMark.isAbsent) { o1 = 'Abs'; o2 = 'Abs'; ot = '0'; }
-        else { 
-            valO1 = ownMark.criteria1; valO2 = ownMark.criteria2; 
-            o1 = valO1; o2 = valO2; ot = valO1 + valO2; 
-        }
+        else { valO1 = ownMark.criteria1; valO2 = ownMark.criteria2; o1 = valO1; o2 = valO2; ot = valO1 + valO2; }
       }
 
-      // Board Defense Calculations
       if (defMarks.length > 0) {
-        // Show only marks, comma separated (e.g. 15, 14, 16)
         indiv = defMarks.map(mk => mk.isAbsent ? 'Abs' : (mk.criteria1 + mk.criteria2)).join(', ');
-
         const present = defMarks.filter(mk => !mk.isAbsent);
         if (present.length > 0) {
           const s1 = present.reduce((acc, c) => acc + c.criteria1, 0) / present.length;
@@ -132,59 +113,48 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
         } else { d1 = 'Abs'; d2 = 'Abs'; dt = '0'; }
       }
 
-      const grand = (ownMark && !ownMark.isAbsent ? (valO1 + valO2) : 0) + valDT;
-      gt = grand.toFixed(1);
+      gt = ((ownMark && !ownMark.isAbsent ? (valO1 + valO2) : 0) + valDT).toFixed(1);
 
       const row = worksheet.getRow(currentRow);
-
-      // Create Hyperlink for Drive Link
-      const driveLinkValue = (item.description && item.description.startsWith('http')) 
-        ? { text: 'View Proposal', hyperlink: item.description }
-        : item.description || 'N/A';
-
       row.values = {
         sn: item.serialNumber ?? '—',
-        c: courseCode,
+        c: item.course?.courseCode || 'N/A',
         title: item.title,
-        count: count,
+        count: team.length,
         name: m.name,
         sid: m.studentId,
         sup: supStr,
         cgpa: m.cgpa || '-',
         email: m.email || '-',
         phone: m.mobile || '-',
-        link: driveLinkValue,
+        link: item.description || 'N/A', // Set default text first
         o1, o2, ot, indiv, d1, d2, dt, gt
       };
 
-      // Styling: Center text for small values
-      ['sn', 'c', 'count', 'sid', 'sup', 'cgpa', 'o1', 'o2', 'ot', 'indiv', 'd1', 'd2', 'dt', 'gt'].forEach(k => {
-        row.getCell(k).alignment = { vertical: 'middle', horizontal: 'center' };
-      });
-
-      // Styling: Blue Hyperlink
+      // 🟢 FIX: Applying proper Clickable Hyperlink to the cell
       if (item.description && item.description.startsWith('http')) {
         const linkCell = row.getCell('link');
+        linkCell.value = {
+          text: 'View Proposal',
+          hyperlink: item.description,
+          tooltip: 'Click to open drive link'
+        };
         linkCell.font = { color: { argb: 'FF0000FF' }, underline: true };
       }
 
-      ['title', 'name', 'email', 'link'].forEach(k => {
-        row.getCell(k).alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
-      });
-
+      // Standard Styling
       row.eachCell({ includeEmpty: true }, (cell) => {
         cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
       });
+      ['title', 'name', 'email', 'link'].forEach(k => row.getCell(k).alignment.horizontal = 'left');
 
       currentRow++;
     });
 
     const endRow = currentRow - 1;
     if (startRow <= endRow) {
-      // Merge common team fields
-      ['A', 'B', 'C', 'D', 'G', 'K'].forEach(col => {
-        worksheet.mergeCells(`${col}${startRow}:${col}${endRow}`);
-      });
+      ['A', 'B', 'C', 'D', 'G', 'K'].forEach(col => worksheet.mergeCells(`${col}${startRow}:${col}${endRow}`));
     }
   });
 
@@ -304,11 +274,8 @@ export const generateDefenseSchedule = async (proposals, allSupervisors, courseF
 // 3. TEAM REQUESTS REPORT (Incomplete Teams < 3)
 // =============================================================================
 export const generateRequestsReport = async (proposals, courseFilter = null) => {
-  // Filter for ONLY requests (SN is null) and optionally by course
   let data = proposals.filter(p => p.serialNumber === null);
-  if (courseFilter) {
-    data = data.filter(p => p.course?._id === courseFilter._id);
-  }
+  if (courseFilter) data = data.filter(p => p.course?._id === courseFilter._id);
 
   if (!data.length) throw new Error('NO_DATA');
 
@@ -317,34 +284,28 @@ export const generateRequestsReport = async (proposals, courseFilter = null) => 
 
   worksheet.columns = [
     { header: 'Course', key: 'course', width: 12 },
-    { header: 'Project Title', key: 'title', width: 35 },
-    { header: 'Role', key: 'role', width: 10 },
+    { header: 'Project Title', key: 'title', width: 40 },
+    { header: 'Role', key: 'role', width: 12 },
     { header: 'Student Name', key: 'name', width: 25 },
     { header: 'Student ID', key: 'sid', width: 18 },
     { header: 'Email', key: 'email', width: 30 },
     { header: 'Phone', key: 'phone', width: 15 },
-    { header: 'Current Size', key: 'size', width: 12 },
   ];
 
-  // Styling
   const headerRow = worksheet.getRow(1);
   headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-  headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE67E22' } }; // Orange color for requests
+  headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE67E22' } };
 
   let currentRow = 2;
 
   data.forEach((item) => {
     const members = item.teamMembers || [];
-    const totalSize = members.length + 1;
     const startRow = currentRow;
 
-
-    // Add Member Rows
     members.forEach(m => {
       worksheet.addRow({
         course: item.course?.courseCode || 'N/A',
         title: item.title,
-        size: totalSize,
         role: 'MEMBER',
         name: m.name,
         sid: m.studentId,
@@ -354,12 +315,10 @@ export const generateRequestsReport = async (proposals, courseFilter = null) => 
       currentRow++;
     });
 
-    // Merge shared project info
     const endRow = currentRow - 1;
     if (startRow < endRow) {
       worksheet.mergeCells(`A${startRow}:A${endRow}`);
       worksheet.mergeCells(`B${startRow}:B${endRow}`);
-      worksheet.mergeCells(`H${startRow}:H${endRow}`);
     }
   });
 
