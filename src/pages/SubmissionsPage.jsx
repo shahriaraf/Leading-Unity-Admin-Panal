@@ -33,24 +33,36 @@ const fromBDToUTC = (bdDate) => {
 // --- Sort Helper ---
 // 1. Sorts by Defense Date (Earliest first)
 // 2. Then puts unscheduled items at the bottom
-const sortProposalsByDate = (list) =>
-  [...list].sort((a, b) => {
-    // If both have dates, compare them (Ascending: Earliest first)
-    if (a.defenseDate && b.defenseDate) {
-      const dateDiff = new Date(a.defenseDate) - new Date(b.defenseDate);
-      if (dateDiff !== 0) return dateDiff;
+// --- Updated Sort Helper ---
+const sortProposalsByDate = (list) => {
+  const now = new Date();
 
-      // If dates are identical, use Serial Number as a tie-breaker
+  return [...list].sort((a, b) => {
+    const dateA = a.defenseDate ? new Date(a.defenseDate) : null;
+    const dateB = b.defenseDate ? new Date(b.defenseDate) : null;
+
+    const isPassedA = dateA && dateA < now;
+    const isPassedB = dateB && dateB < now;
+
+    // 1. Handle "Passed" status (Move finished defenses to the absolute bottom)
+    if (isPassedA && !isPassedB) return 1;
+    if (!isPassedA && isPassedB) return -1;
+
+    // 2. Handle "Unscheduled" (Move null dates below upcoming but above passed)
+    if (dateA && !dateB) return -1;
+    if (!dateA && dateB) return 1;
+
+    // 3. Both have dates (Both Upcoming OR Both Passed)
+    if (dateA && dateB) {
+      const diff = dateA - dateB;
+      if (diff !== 0) return diff; // Earlier dates first
       return (a.serialNumber ?? 999) - (b.serialNumber ?? 999);
     }
 
-    // Move items with dates to the top, nulls to the bottom
-    if (a.defenseDate) return -1;
-    if (b.defenseDate) return 1;
-
-    // If neither has a date, sort by Serial Number
+    // 4. Both are unscheduled
     return (a.serialNumber ?? 999) - (b.serialNumber ?? 999);
   });
+};
 
 // --- Icons ---
 // ... (Keep existing icons: SearchIcon, TeamIcon, LinkIcon, XIcon, RestoreIcon, EmptyStateIcon) ...
