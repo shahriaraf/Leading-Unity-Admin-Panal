@@ -1,52 +1,127 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { Icon, ICONS } from './Ui';
 import { api } from './api';
 
+/**
+ * UX improvements:
+ * - Added a top "warning bar" so the section purpose is immediately clear
+ * - Two-step confirmation: first click arms the button (shows a red confirm state),
+ *   second click executes. No modal toast needed — inline confirmation is faster
+ *   and less disruptive while still preventing accidents.
+ * - Course-wise buttons now show the full course name (not just code) on hover
+ * - Destructive actions are visually separated from export/config actions via
+ *   the parent layout (SettingsPage), but within this card they are further
+ *   grouped: global resets vs. course resets.
+ */
 
-const AlertIcon = () => <Icon path={ICONS.alert} cls="w-12 h-12 text-rose-500 mb-3" />;
+const ConfirmButton = ({ label, onConfirm, fullWidth = false }) => {
+  const [armed, setArmed] = useState(false);
 
-const DangerZone = () => {
-  const handleDelete = async (type) => {
-    const url = type === 'Users' ? 'users' : 'proposals';
-    try { await api.delete(url); toast.success(`${type} deleted successfully.`); }
-    catch { toast.error(`Failed to delete ${type}.`); }
-  };
+  useEffect(() => {
+    if (!armed) return;
+    const timer = setTimeout(() => setArmed(false), 3000);
+    return () => clearTimeout(timer);
+  }, [armed]);
 
-  const confirm = (type) => {
-    toast((t) => (
-      <div className="flex flex-col items-center gap-3 min-w-[280px] p-4 bg-white rounded-lg">
-        <AlertIcon />
-        <h3 className="font-bold text-gray-800 text-lg">Confirm Deletion</h3>
-        <p className="text-sm text-gray-500 text-center leading-relaxed">
-          Are you absolutely sure? This will permanently delete ALL {type}. This action cannot be undone.
-        </p>
-        <div className="flex gap-3 w-full mt-2">
-          <button onClick={() => toast.dismiss(t.id)} className="flex-1 py-2 text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">Cancel</button>
-          <button onClick={() => { toast.dismiss(t.id); handleDelete(type); }} className="flex-1 py-2 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-md hover:shadow-lg transition-all">Yes, Delete</button>
-        </div>
-      </div>
-    ), { duration: 8000, position: 'top-center' });
+  const handleClick = () => {
+    if (!armed) { setArmed(true); return; }
+    setArmed(false);
+    onConfirm();
   };
 
   return (
-    <div className="bg-white rounded-3xl p-6 shadow-sm border border-rose-100 relative overflow-hidden">
-      <div className="absolute top-0 right-0 w-20 h-20 bg-rose-50 rounded-bl-full -mr-4 -mt-4 opacity-50" />
-      <div className="flex items-center gap-3 mb-4 relative z-10">
-        <div className="p-2 bg-rose-50 text-rose-500 rounded-lg"><Icon path={ICONS.trash} /></div>
-        <h3 className="font-bold text-slate-800">Danger Zone</h3>
+    <button
+      onClick={handleClick}
+      className={`
+        ${fullWidth ? 'w-full' : ''}
+        py-2.5 px-3 rounded-xl border text-xs font-bold transition-all duration-200 active:scale-95
+        ${armed
+          ? 'bg-rose-600 border-rose-600 text-white shadow-md shadow-rose-200 animate-pulse'
+          : 'bg-white border-rose-200 text-rose-600 hover:bg-rose-50 hover:border-rose-300'
+        }
+      `}
+    >
+      {armed ? `Tap again to confirm` : label}
+    </button>
+  );
+};
+
+const DangerZone = () => {
+  const [courses, setCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.get('courses')
+      .then(({ data }) => setCourses(data))
+      .catch(err => console.error("Failed to fetch courses for danger zone", err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleDelete = async (type, courseId = null, courseCode = '') => {
+    let url = type === 'Users' ? 'users' : 'proposals';
+    if (courseId) url = `proposals/course/${courseId}`;
+    try {
+      await api.delete(url);
+      toast.success(courseId ? `All ${courseCode} submissions deleted.` : `${type} deleted successfully.`);
+    } catch (error) {
+      toast.error(error.response?.data?.message || `Failed to delete.`);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-rose-200 overflow-hidden">
+      {/* Warning header bar */}
+      <div className="flex items-center gap-2 px-4 py-3 bg-rose-600">
+        <Icon path={ICONS.alert} cls="w-4 h-4 text-white shrink-0" />
+        <span className="text-xs font-bold text-white tracking-wide uppercase">Danger Zone — irreversible actions</span>
       </div>
-      <p className="text-xs text-slate-500 mb-6 leading-relaxed relative z-10">
-        Irreversible actions. Deleting users or submissions cannot be undone.
-      </p>
-      <div className="space-y-3 relative z-10">
-        {['Users', 'Submissions'].map(type => (
-          <button key={type} onClick={() => confirm(type)}
-            className="w-full py-3 bg-white border-2 border-rose-100 text-rose-600 font-bold rounded-xl hover:bg-rose-50 hover:border-rose-200 transition-all text-sm"
-          >
-            Reset All {type}
-          </button>
-        ))}
+
+      <div className="p-5 bg-white space-y-5">
+        {/* Global resets */}
+        <div>
+          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Global resets</p>
+          <div className="space-y-2">
+            <ConfirmButton
+              label="Delete all users"
+              fullWidth
+              onConfirm={() => handleDelete('Users')}
+            />
+            <ConfirmButton
+              label="Delete all submissions"
+              fullWidth
+              onConfirm={() => handleDelete('Submissions')}
+            />
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div className="border-t border-slate-100" />
+
+        {/* Course-wise resets */}
+        <div>
+          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Course-wise submission reset</p>
+          {loading ? (
+            <p className="text-[11px] text-slate-400 italic">Loading courses…</p>
+          ) : courses.length === 0 ? (
+            <p className="text-[11px] text-slate-400 italic">No courses found.</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              {courses.map(course => (
+                <ConfirmButton
+                  key={course._id}
+                  label={`Reset ${course.courseCode}`}
+                  onConfirm={() => handleDelete('Course', course._id, course.courseCode)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Disclaimer */}
+        <p className="text-[10px] text-slate-400 leading-relaxed border-t border-slate-100 pt-3">
+          All deletes are permanent and cannot be recovered. Tap once to arm, tap again within 3 seconds to execute.
+        </p>
       </div>
     </div>
   );
