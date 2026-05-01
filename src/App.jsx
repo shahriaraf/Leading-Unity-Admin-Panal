@@ -10,6 +10,7 @@ import CoursesPage from "./pages/CoursesPage";
 import SettingsPage from "./pages/SettingsPage/SettingsPage";
 import AdminRegisterPage from "./pages/AdminRegisterPage";
 import SubmissionsPage from "./pages/SubmissionsPage";
+import SupervisorTeamsDashboard from "./pages/SupervisorTeamsDashboard";
 
 
 function App() {
@@ -26,6 +27,7 @@ function App() {
             <Route path="/courses" element={<CoursesPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/submissions" element={<SubmissionsPage></SubmissionsPage>} />
+            <Route path="/supervisor-teams" element={<SupervisorTeamsDashboard></SupervisorTeamsDashboard>} />
 
           </Route>
         </Route>
