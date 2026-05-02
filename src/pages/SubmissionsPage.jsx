@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
@@ -238,7 +239,7 @@ const MergePanel = ({ selectedProposals, onConfirm, onCancel, isMerging }) => {
 
   const preview = collectMembers(selectedProposals, primaryId);
   const totalMembers = preview.length;
-  const isValid = totalMembers >= 1 && totalMembers <= 4;
+  const isValid = totalMembers >= 3 && totalMembers <= 4;
   const primary = selectedProposals.find((p) => p._id === primaryId);
 
   return (
@@ -309,7 +310,7 @@ const MergePanel = ({ selectedProposals, onConfirm, onCancel, isMerging }) => {
                   ? "bg-emerald-100 text-emerald-700"
                   : "bg-amber-100 text-amber-700"
               }`}>
-                {totalMembers} / 4 members
+                {totalMembers} / 4 members {totalMembers < 3 ? "(min 3)" : ""}
               </span>
             </div>
 
@@ -324,11 +325,22 @@ const MergePanel = ({ selectedProposals, onConfirm, onCancel, isMerging }) => {
               </div>
             )}
 
+            {totalMembers < 3 && (
+              <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg mb-3">
+                <svg className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.963-.833-2.733 0L3.068 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+                <p className="text-xs text-amber-700 font-medium">
+                  Merged team has only {totalMembers} member{totalMembers !== 1 ? "s" : ""}. Select more proposals to reach the minimum of 3.
+                </p>
+              </div>
+            )}
+
             <div className="rounded-xl border border-gray-200 overflow-hidden">
               <table className="w-full text-xs">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-2 text-left text-gray-500 font-semibold"></th>
+                    <th className="px-4 py-2 text-left text-gray-500 font-semibold">#</th>
                     <th className="px-4 py-2 text-left text-gray-500 font-semibold">Name</th>
                     <th className="px-4 py-2 text-left text-gray-500 font-semibold">Student ID</th>
                     <th className="px-4 py-2 text-left text-gray-500 font-semibold">Source</th>
@@ -581,22 +593,42 @@ const SubmissionsPage = () => {
 
   const ProposalRow = ({ proposal }) => {
     const isSelected = selectedForMerge.some((p) => p._id === proposal._id);
+
+    // Course lock: once any proposal is selected, lock to that course
+    const lockedCourseCode = selectedForMerge[0]?.course?.courseCode ?? null;
+    const isDifferentCourse =
+      mergeMode &&
+      lockedCourseCode !== null &&
+      !isSelected &&
+      proposal.course?.courseCode !== lockedCourseCode;
+
     return (
       <tr
         className={`group transition-colors duration-150 ${
-          mergeMode && isSelected
+          isDifferentCourse
+            ? "opacity-40 cursor-not-allowed bg-gray-50"
+            : mergeMode && isSelected
             ? "bg-violet-50 border-l-4 border-violet-500"
             : mergeMode
             ? "hover:bg-gray-50/80 cursor-pointer"
             : "hover:bg-gray-50/80"
         }`}
-        onClick={mergeMode ? () => toggleSelectForMerge(proposal) : undefined}
+        onClick={
+          mergeMode && !isDifferentCourse
+            ? () => toggleSelectForMerge(proposal)
+            : undefined
+        }
+        title={isDifferentCourse ? `Only ${lockedCourseCode} proposals can be merged together` : undefined}
       >
         {/* Merge checkbox OR serial number */}
         <td className="px-4 py-4 text-center align-top w-10">
           {mergeMode ? (
             <span className={`inline-flex items-center justify-center w-5 h-5 rounded border-2 transition-all ${
-              isSelected ? "bg-violet-600 border-violet-600 text-white" : "border-gray-300 bg-white"
+              isSelected
+                ? "bg-violet-600 border-violet-600 text-white"
+                : isDifferentCourse
+                ? "border-gray-200 bg-gray-100"
+                : "border-gray-300 bg-white"
             }`}>
               {isSelected && <CheckIcon />}
             </span>
@@ -695,9 +727,17 @@ const SubmissionsPage = () => {
         <td className="px-6 py-4 text-right align-top whitespace-nowrap">
           {mergeMode ? (
             <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg transition-colors ${
-              isSelected ? "bg-violet-100 text-violet-700" : "text-gray-400"
+              isSelected
+                ? "bg-violet-100 text-violet-700"
+                : isDifferentCourse
+                ? "text-gray-300"
+                : "text-gray-400"
             }`}>
-              {isSelected ? "Selected" : "Click to select"}
+              {isSelected
+                ? "Selected"
+                : isDifferentCourse
+                ? `${lockedCourseCode} only`
+                : "Click to select"}
             </span>
           ) : (
             <div className="flex justify-end gap-2">
@@ -838,6 +878,15 @@ const SubmissionsPage = () => {
                   ? "Click rows to select proposals to merge"
                   : `${selectedForMerge.length} proposal${selectedForMerge.length > 1 ? "s" : ""} selected`}
               </span>
+
+              {selectedForMerge.length > 0 && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-700 border border-indigo-200">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  Locked to: {selectedForMerge[0]?.course?.courseCode}
+                </span>
+              )}
 
               {selectedForMerge.length >= 2 && (
                 <button
