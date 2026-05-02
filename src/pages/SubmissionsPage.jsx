@@ -101,6 +101,12 @@ const StarIcon = () => (
     <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
   </svg>
 );
+const BulkCalendarIcon = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+  </svg>
+);
 
 // ── Styles / helpers ────────────────────────────────────────────────────────
 const GlobalDatePickerStyles = () => (
@@ -405,6 +411,179 @@ const MergePanel = ({ selectedProposals, onConfirm, onCancel, isMerging }) => {
   );
 };
 
+// ── Bulk Schedule Panel ──────────────────────────────────────────────────────
+// Admin picks a date, start time, and slot duration.
+// Teams are assigned sequential slots in serial-number order.
+const BulkSchedulePanel = ({ selectedProposals, onConfirm, onCancel, isSaving }) => {
+  const [date, setDate] = useState(null);
+  const [startTime, setStartTime] = useState(new Date(new Date().setHours(9, 0, 0, 0)));
+  const [slotMinutes, setSlotMinutes] = useState(30);
+
+  // Sort by serial number for preview
+  const sorted = [...selectedProposals].sort(
+    (a, b) => (a.serialNumber ?? 999) - (b.serialNumber ?? 999)
+  );
+
+  // Compute preview schedule
+  const previewSlots = sorted.map((p, i) => {
+    if (!date || !startTime) return { proposal: p, start: null, end: null };
+    const slotStart = new Date(date);
+    const t = new Date(startTime);
+    slotStart.setHours(t.getHours(), t.getMinutes() + i * slotMinutes, 0, 0);
+    const slotEnd = new Date(slotStart.getTime() + slotMinutes * 60 * 1000);
+    return { proposal: p, start: slotStart, end: slotEnd };
+  });
+
+  const fmt = (d) =>
+    d
+      ? d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
+      : "--:--";
+
+  const canSave = date && startTime && selectedProposals.length > 0;
+
+  const timePickerProps = {
+    showTimeSelect: true,
+    showTimeSelectOnly: true,
+    timeIntervals: 15,
+    dateFormat: "h:mm aa",
+    className: "w-full text-xs p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20",
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-5">
+          <h2 className="text-lg font-bold text-white flex items-center gap-2">
+            <BulkCalendarIcon />
+            Bulk Schedule Defense — {selectedProposals.length} team{selectedProposals.length !== 1 ? "s" : ""}
+          </h2>
+          <p className="text-indigo-200 text-xs mt-1">
+            Teams are scheduled sequentially in serial-number order. Each team gets one time slot.
+          </p>
+        </div>
+
+        <div className="p-6 space-y-5 max-h-[72vh] overflow-y-auto">
+          {/* Controls row */}
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1.5">Defense Date</label>
+              <DatePicker
+                selected={date}
+                onChange={setDate}
+                dateFormat="MMM d, yyyy"
+                placeholderText="Pick a date"
+                className="w-full text-xs p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1.5">Start Time</label>
+              <DatePicker
+                selected={startTime}
+                onChange={setStartTime}
+                timeCaption="Start"
+                {...timePickerProps}
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1.5">Slot Duration</label>
+              <select
+                value={slotMinutes}
+                onChange={(e) => setSlotMinutes(Number(e.target.value))}
+                className="w-full text-xs p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 bg-white"
+              >
+                {[15, 20, 25, 30, 45, 60].map((m) => (
+                  <option key={m} value={m}>{m} minutes</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Preview table */}
+          <div>
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-2">
+              Schedule Preview
+            </p>
+            <div className="rounded-xl border border-gray-200 overflow-hidden">
+              <table className="w-full text-xs">
+                <thead className="bg-gray-50 border-b border-gray-100">
+                  <tr>
+                    <th className="px-4 py-2.5 text-left text-gray-500 font-semibold w-10">SN</th>
+                    <th className="px-4 py-2.5 text-left text-gray-500 font-semibold">Team</th>
+                    <th className="px-4 py-2.5 text-left text-gray-500 font-semibold w-28">Start</th>
+                    <th className="px-4 py-2.5 text-left text-gray-500 font-semibold w-28">End</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {previewSlots.map(({ proposal, start, end }, i) => (
+                    <tr key={proposal._id} className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
+                      <td className="px-4 py-2.5">
+                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-50 border border-indigo-200 text-[10px] font-bold text-indigo-700">
+                          {proposal.serialNumber ?? "—"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <p className="font-semibold text-gray-800 truncate max-w-[240px]">{proposal.title}</p>
+                        <p className="text-gray-400 text-[10px] mt-0.5">{proposal.course?.courseCode}</p>
+                      </td>
+                      <td className="px-4 py-2.5 font-mono text-indigo-600 font-semibold">
+                        {fmt(start)}
+                      </td>
+                      <td className="px-4 py-2.5 font-mono text-gray-500">
+                        {fmt(end)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {date && (
+              <p className="text-[11px] text-gray-400 mt-2 text-right">
+                Last slot ends at{" "}
+                <span className="font-semibold text-gray-600">
+                  {fmt(previewSlots[previewSlots.length - 1]?.end)}
+                </span>
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex gap-3 justify-end">
+          <button
+            onClick={onCancel}
+            disabled={isSaving}
+            className="px-5 py-2 text-sm font-semibold text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onConfirm(previewSlots)}
+            disabled={!canSave || isSaving}
+            className="px-5 py-2 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+          >
+            {isSaving ? (
+              <>
+                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                </svg>
+                Saving…
+              </>
+            ) : (
+              <>
+                <BulkCalendarIcon />
+                Save {selectedProposals.length} Schedule{selectedProposals.length !== 1 ? "s" : ""}
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── Main component ──────────────────────────────────────────────────────────
 const SubmissionsPage = () => {
   const [proposals, setProposals] = useState([]);
@@ -419,9 +598,15 @@ const SubmissionsPage = () => {
 
   // Merge state
   const [mergeMode, setMergeMode] = useState(false);
-  const [selectedForMerge, setSelectedForMerge] = useState([]); // array of proposal objects
+  const [selectedForMerge, setSelectedForMerge] = useState([]);
   const [showMergePanel, setShowMergePanel] = useState(false);
   const [isMerging, setIsMerging] = useState(false);
+
+  // Bulk schedule state
+  const [bulkMode, setBulkMode] = useState(false);
+  const [selectedForBulk, setSelectedForBulk] = useState([]); // array of proposal objects
+  const [showBulkPanel, setShowBulkPanel] = useState(false);
+  const [isBulkSaving, setIsBulkSaving] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -492,6 +677,10 @@ const SubmissionsPage = () => {
     if (activeTab !== "requests") {
       setMergeMode(false);
       setSelectedForMerge([]);
+    }
+    if (activeTab !== "official") {
+      setBulkMode(false);
+      setSelectedForBulk([]);
     }
   }, [activeTab]);
 
@@ -566,6 +755,67 @@ const SubmissionsPage = () => {
     }
   };
 
+  // ── Bulk schedule handlers ───────────────────────────────────────────────
+  const toggleBulkMode = () => {
+    setBulkMode((prev) => !prev);
+    setSelectedForBulk([]);
+  };
+
+  const toggleSelectForBulk = (proposal) => {
+    setSelectedForBulk((prev) => {
+      const exists = prev.find((p) => p._id === proposal._id);
+      if (exists) return prev.filter((p) => p._id !== proposal._id);
+      return [...prev, proposal];
+    });
+  };
+
+  const selectAllForBulk = () => {
+    // Only approved proposals shown in the current filtered view
+    const eligible = filteredProposals.filter((p) => p.status === "approved");
+    const allSelected = eligible.every((p) => selectedForBulk.some((s) => s._id === p._id));
+    if (allSelected) {
+      setSelectedForBulk([]);
+    } else {
+      setSelectedForBulk(eligible);
+    }
+  };
+
+  const handleBulkScheduleConfirm = async (previewSlots) => {
+    setIsBulkSaving(true);
+    try {
+      const results = await Promise.allSettled(
+        previewSlots.map(({ proposal, start, end }) =>
+          axios.put(
+            `${API_BASE}/proposals/${proposal._id}/defense-date`,
+            {
+              date:    fromBDToUTC(start)?.toISOString() ?? start.toISOString(),
+              endDate: fromBDToUTC(end)?.toISOString()   ?? end.toISOString(),
+            },
+            getAuthHeader()
+          )
+        )
+      );
+
+      const failed = results.filter((r) => r.status === "rejected").length;
+      const succeeded = results.length - failed;
+
+      if (failed === 0) {
+        toast.success(`${succeeded} schedule${succeeded !== 1 ? "s" : ""} saved successfully!`);
+      } else {
+        toast.error(`${succeeded} saved, ${failed} failed. Please retry the failed ones manually.`);
+      }
+
+      setShowBulkPanel(false);
+      setBulkMode(false);
+      setSelectedForBulk([]);
+      fetchData();
+    } catch {
+      toast.error("Bulk schedule failed. Please try again.");
+    } finally {
+      setIsBulkSaving(false);
+    }
+  };
+
   // ── Row components ──────────────────────────────────────────────────────
   const SkeletonRows = () =>
     [...Array(4)].map((_, i) => (
@@ -593,8 +843,9 @@ const SubmissionsPage = () => {
 
   const ProposalRow = ({ proposal }) => {
     const isSelected = selectedForMerge.some((p) => p._id === proposal._id);
+    const isBulkSelected = selectedForBulk.some((p) => p._id === proposal._id);
 
-    // Course lock: once any proposal is selected, lock to that course
+    // Course lock for merge mode
     const lockedCourseCode = selectedForMerge[0]?.course?.courseCode ?? null;
     const isDifferentCourse =
       mergeMode &&
@@ -602,25 +853,39 @@ const SubmissionsPage = () => {
       !isSelected &&
       proposal.course?.courseCode !== lockedCourseCode;
 
+    // In bulk mode, only approved proposals are selectable
+    const isBulkDisabled = bulkMode && proposal.status !== "approved";
+
+    const handleRowClick = () => {
+      if (mergeMode && !isDifferentCourse) toggleSelectForMerge(proposal);
+      if (bulkMode && !isBulkDisabled) toggleSelectForBulk(proposal);
+    };
+
     return (
       <tr
         className={`group transition-colors duration-150 ${
           isDifferentCourse
             ? "opacity-40 cursor-not-allowed bg-gray-50"
+            : isBulkDisabled
+            ? "opacity-40 cursor-not-allowed"
+            : bulkMode && isBulkSelected
+            ? "bg-blue-50 border-l-4 border-blue-500"
             : mergeMode && isSelected
             ? "bg-violet-50 border-l-4 border-violet-500"
-            : mergeMode
+            : mergeMode || bulkMode
             ? "hover:bg-gray-50/80 cursor-pointer"
             : "hover:bg-gray-50/80"
         }`}
-        onClick={
-          mergeMode && !isDifferentCourse
-            ? () => toggleSelectForMerge(proposal)
+        onClick={(mergeMode || bulkMode) ? handleRowClick : undefined}
+        title={
+          isDifferentCourse
+            ? `Only ${lockedCourseCode} proposals can be merged together`
+            : isBulkDisabled
+            ? "Only approved teams can be scheduled"
             : undefined
         }
-        title={isDifferentCourse ? `Only ${lockedCourseCode} proposals can be merged together` : undefined}
       >
-        {/* Merge checkbox OR serial number */}
+        {/* Merge checkbox / Bulk checkbox / Serial number */}
         <td className="px-4 py-4 text-center align-top w-10">
           {mergeMode ? (
             <span className={`inline-flex items-center justify-center w-5 h-5 rounded border-2 transition-all ${
@@ -631,6 +896,16 @@ const SubmissionsPage = () => {
                 : "border-gray-300 bg-white"
             }`}>
               {isSelected && <CheckIcon />}
+            </span>
+          ) : bulkMode ? (
+            <span className={`inline-flex items-center justify-center w-5 h-5 rounded border-2 transition-all ${
+              isBulkSelected
+                ? "bg-blue-600 border-blue-600 text-white"
+                : isBulkDisabled
+                ? "border-gray-200 bg-gray-100"
+                : "border-gray-300 bg-white"
+            }`}>
+              {isBulkSelected && <CheckIcon />}
             </span>
           ) : proposal.serialNumber != null ? (
             <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-indigo-50 border border-indigo-200 text-xs font-bold text-indigo-700">
@@ -739,6 +1014,16 @@ const SubmissionsPage = () => {
                 ? `${lockedCourseCode} only`
                 : "Click to select"}
             </span>
+          ) : bulkMode ? (
+            <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg transition-colors ${
+              isBulkSelected
+                ? "bg-blue-100 text-blue-700"
+                : isBulkDisabled
+                ? "text-gray-300"
+                : "text-gray-400"
+            }`}>
+              {isBulkSelected ? "Selected" : isBulkDisabled ? "Not approved" : "Click to select"}
+            </span>
           ) : (
             <div className="flex justify-end gap-2">
               {proposal.status !== "rejected" ? (
@@ -777,6 +1062,16 @@ const SubmissionsPage = () => {
           onConfirm={handleMergeConfirm}
           onCancel={() => setShowMergePanel(false)}
           isMerging={isMerging}
+        />
+      )}
+
+      {/* Bulk Schedule Modal */}
+      {showBulkPanel && (
+        <BulkSchedulePanel
+          selectedProposals={selectedForBulk}
+          onConfirm={handleBulkScheduleConfirm}
+          onCancel={() => setShowBulkPanel(false)}
+          isSaving={isBulkSaving}
         />
       )}
 
@@ -855,9 +1150,7 @@ const SubmissionsPage = () => {
       {/* Merge mode toolbar — only visible on Team Requests tab */}
       {activeTab === "requests" && (
         <div className={`mb-4 flex items-center gap-3 px-5 py-3 rounded-xl border transition-all ${
-          mergeMode
-            ? "bg-violet-50 border-violet-200"
-            : "bg-white border-gray-200"
+          mergeMode ? "bg-violet-50 border-violet-200" : "bg-white border-gray-200"
         }`}>
           <button
             onClick={toggleMergeMode}
@@ -902,6 +1195,54 @@ const SubmissionsPage = () => {
         </div>
       )}
 
+      {/* Bulk schedule toolbar — only visible on Official Teams tab */}
+      {activeTab === "official" && (
+        <div className={`mb-4 flex items-center gap-3 px-5 py-3 rounded-xl border transition-all ${
+          bulkMode ? "bg-blue-50 border-blue-200" : "bg-white border-gray-200"
+        }`}>
+          <button
+            onClick={toggleBulkMode}
+            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+              bulkMode
+                ? "bg-blue-600 text-white hover:bg-blue-700"
+                : "bg-white border border-gray-300 text-gray-700 hover:border-blue-400 hover:text-blue-700"
+            }`}
+          >
+            <BulkCalendarIcon />
+            {bulkMode ? "Exit Bulk Schedule" : "Bulk Schedule"}
+          </button>
+
+          {bulkMode && (
+            <>
+              <span className="text-xs text-blue-700 font-medium">
+                {selectedForBulk.length === 0
+                  ? "Click rows or use the header checkbox to select teams"
+                  : `${selectedForBulk.length} team${selectedForBulk.length !== 1 ? "s" : ""} selected`}
+              </span>
+
+              <button
+                onClick={selectAllForBulk}
+                className="text-xs font-bold text-blue-600 hover:text-blue-800 underline underline-offset-2"
+              >
+                {filteredProposals.filter(p => p.status === "approved").every(p => selectedForBulk.some(s => s._id === p._id))
+                  ? "Deselect All"
+                  : "Select All"}
+              </button>
+
+              {selectedForBulk.length >= 1 && (
+                <button
+                  onClick={() => setShowBulkPanel(true)}
+                  className="ml-auto flex items-center gap-2 px-4 py-2 text-xs font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-sm"
+                >
+                  <BulkCalendarIcon />
+                  Set Schedule ({selectedForBulk.length})
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
       {/* Table */}
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto min-h-[400px]">
@@ -909,16 +1250,33 @@ const SubmissionsPage = () => {
             <thead className="bg-gray-50/50">
               <tr>
                 {[
-                  { label: mergeMode ? "✓" : "SN", align: "text-center" },
+                  { label: mergeMode ? "✓" : bulkMode ? "all" : "SN", align: "text-center", isBulkAll: bulkMode },
                   { label: "Project", align: "text-left" },
                   { label: "Team Members", align: "text-left" },
                   { label: "Defense Schedule", align: "text-left" },
                   { label: "Assign Supervisor", align: "text-left" },
                   { label: "Status", align: "text-center" },
                   { label: "Actions", align: "text-right" },
-                ].map(({ label, align }) => (
-                  <th key={label} className={`px-6 py-4 text-xs font-semibold tracking-wide text-gray-500 uppercase ${align}`}>
-                    {label}
+                ].map(({ label, align, isBulkAll }) => (
+                  <th
+                    key={label}
+                    className={`px-6 py-4 text-xs font-semibold tracking-wide text-gray-500 uppercase ${align}`}
+                    onClick={isBulkAll ? selectAllForBulk : undefined}
+                    style={isBulkAll ? { cursor: "pointer" } : undefined}
+                    title={isBulkAll ? "Select / deselect all approved teams" : undefined}
+                  >
+                    {isBulkAll ? (
+                      <span className={`inline-flex items-center justify-center w-5 h-5 rounded border-2 transition-all ${
+                        filteredProposals.filter(p => p.status === "approved").length > 0 &&
+                        filteredProposals.filter(p => p.status === "approved").every(p => selectedForBulk.some(s => s._id === p._id))
+                          ? "bg-blue-600 border-blue-600 text-white"
+                          : "border-gray-400 bg-white"
+                      }`}>
+                        {filteredProposals.filter(p => p.status === "approved").length > 0 &&
+                         filteredProposals.filter(p => p.status === "approved").every(p => selectedForBulk.some(s => s._id === p._id))
+                          && <CheckIcon />}
+                      </span>
+                    ) : label}
                   </th>
                 ))}
               </tr>
@@ -942,6 +1300,11 @@ const SubmissionsPage = () => {
           {mergeMode && selectedForMerge.length > 0 && (
             <span className="font-semibold text-violet-600">
               {selectedForMerge.length} selected for merge
+            </span>
+          )}
+          {bulkMode && selectedForBulk.length > 0 && (
+            <span className="font-semibold text-blue-600">
+              {selectedForBulk.length} selected for scheduling
             </span>
           )}
         </div>
