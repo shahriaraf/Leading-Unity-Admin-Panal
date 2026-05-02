@@ -328,7 +328,7 @@ const MergePanel = ({ selectedProposals, onConfirm, onCancel, isMerging }) => {
               <table className="w-full text-xs">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-2 text-left text-gray-500 font-semibold">#</th>
+                    <th className="px-4 py-2 text-left text-gray-500 font-semibold"></th>
                     <th className="px-4 py-2 text-left text-gray-500 font-semibold">Name</th>
                     <th className="px-4 py-2 text-left text-gray-500 font-semibold">Student ID</th>
                     <th className="px-4 py-2 text-left text-gray-500 font-semibold">Source</th>
