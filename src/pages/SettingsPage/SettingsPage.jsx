@@ -165,7 +165,7 @@ const SettingsPage = () => {
   const deadlineDotColor = isDeadlinePast ? "bg-rose-400" : isDeadlineSoon ? "bg-amber-400 animate-pulse" : submissionDeadline ? "bg-indigo-400" : "bg-slate-200";
 
   return (
-    <div className="min-h-screen p-4 sm:p-6 font-sans selection:bg-indigo-100 selection:text-indigo-900">
+    <div className="min-h-screen p-6 md:p-2 font-sans selection:bg-indigo-100 selection:text-indigo-900">
       <DeadlinePickerStyles />
       <Toaster
         position="top-center"
@@ -175,12 +175,12 @@ const SettingsPage = () => {
       />
 
       {/* Page header */}
-      <div className="max-w-5xl mx-auto mb-8">
+      <div className="max-w-6xl mx-auto mb-8">
         <h1 className="text-2xl font-black text-slate-900 tracking-tight">Settings</h1>
         <p className="text-slate-500 mt-1 text-sm">Manage student access, deadlines, scoring criteria, and data exports.</p>
       </div>
 
-      <div className="max-w-5xl mx-auto space-y-8">
+      <div className="max-w-6xl mx-auto space-y-8">
 
         {/* ── Section 1: Access Control ── */}
         <section>

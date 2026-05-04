@@ -368,7 +368,7 @@ const SupervisorTeamsDashboard = () => {
   });
 
   return (
-    <div className="min-h-screen p-6 font-sans">
+    <div className="min-h-screen p-6 md:p-2 font-sans">
       <Toaster position="top-right" />
 
       {/* Page Header */}
