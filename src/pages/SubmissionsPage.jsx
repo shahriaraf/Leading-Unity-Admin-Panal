@@ -1,4 +1,4 @@
-/* eslint-disable prettier/prettier */
+
 import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
@@ -412,11 +412,14 @@ const MergePanel = ({ selectedProposals, onConfirm, onCancel, isMerging }) => {
 };
 
 // ── Bulk Schedule Panel ──────────────────────────────────────────────────────
-// Admin picks a date, start time, and slot duration.
-// Teams are assigned sequential slots in serial-number order.
+// Two modes:
+//   Sequential   — each team gets its own time slot, one after another
+//   Simultaneous — all teams share the exact same start/end time (different rooms)
 const BulkSchedulePanel = ({ selectedProposals, onConfirm, onCancel, isSaving }) => {
+  const [scheduleMode, setScheduleMode] = useState("sequential"); // "sequential" | "simultaneous"
   const [date, setDate] = useState(null);
   const [startTime, setStartTime] = useState(new Date(new Date().setHours(9, 0, 0, 0)));
+  const [endTime, setEndTime] = useState(new Date(new Date().setHours(10, 0, 0, 0)));
   const [slotMinutes, setSlotMinutes] = useState(30);
 
   // Sort by serial number for preview
@@ -424,22 +427,36 @@ const BulkSchedulePanel = ({ selectedProposals, onConfirm, onCancel, isSaving })
     (a, b) => (a.serialNumber ?? 999) - (b.serialNumber ?? 999)
   );
 
-  // Compute preview schedule
+  // Compute slots based on mode
   const previewSlots = sorted.map((p, i) => {
     if (!date || !startTime) return { proposal: p, start: null, end: null };
-    const slotStart = new Date(date);
-    const t = new Date(startTime);
-    slotStart.setHours(t.getHours(), t.getMinutes() + i * slotMinutes, 0, 0);
-    const slotEnd = new Date(slotStart.getTime() + slotMinutes * 60 * 1000);
-    return { proposal: p, start: slotStart, end: slotEnd };
+
+    if (scheduleMode === "simultaneous") {
+      // All teams get the exact same time window
+      const slotStart = new Date(date);
+      const t = new Date(startTime);
+      slotStart.setHours(t.getHours(), t.getMinutes(), 0, 0);
+
+      const slotEnd = new Date(date);
+      const e = new Date(endTime);
+      slotEnd.setHours(e.getHours(), e.getMinutes(), 0, 0);
+
+      return { proposal: p, start: slotStart, end: slotEnd };
+    } else {
+      // Sequential: offset each team by slotMinutes * index
+      const slotStart = new Date(date);
+      const t = new Date(startTime);
+      slotStart.setHours(t.getHours(), t.getMinutes() + i * slotMinutes, 0, 0);
+      const slotEnd = new Date(slotStart.getTime() + slotMinutes * 60 * 1000);
+      return { proposal: p, start: slotStart, end: slotEnd };
+    }
   });
 
   const fmt = (d) =>
-    d
-      ? d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
-      : "--:--";
+    d ? d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "--:--";
 
-  const canSave = date && startTime && selectedProposals.length > 0;
+  const canSave = date && startTime && selectedProposals.length > 0 &&
+    (scheduleMode === "sequential" || endTime);
 
   const timePickerProps = {
     showTimeSelect: true,
@@ -452,6 +469,7 @@ const BulkSchedulePanel = ({ selectedProposals, onConfirm, onCancel, isSaving })
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
+
         {/* Header */}
         <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-5">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
@@ -459,45 +477,155 @@ const BulkSchedulePanel = ({ selectedProposals, onConfirm, onCancel, isSaving })
             Bulk Schedule Defense — {selectedProposals.length} team{selectedProposals.length !== 1 ? "s" : ""}
           </h2>
           <p className="text-indigo-200 text-xs mt-1">
-            Teams are scheduled sequentially in serial-number order. Each team gets one time slot.
+            {scheduleMode === "sequential"
+              ? "Teams are scheduled one after another in serial-number order."
+              : "All teams defend at the same time — each in a separate room."}
           </p>
         </div>
 
         <div className="p-6 space-y-5 max-h-[72vh] overflow-y-auto">
-          {/* Controls row */}
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1.5">Defense Date</label>
-              <DatePicker
-                selected={date}
-                onChange={setDate}
-                dateFormat="MMM d, yyyy"
-                placeholderText="Pick a date"
-                className="w-full text-xs p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1.5">Start Time</label>
-              <DatePicker
-                selected={startTime}
-                onChange={setStartTime}
-                timeCaption="Start"
-                {...timePickerProps}
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1.5">Slot Duration</label>
-              <select
-                value={slotMinutes}
-                onChange={(e) => setSlotMinutes(Number(e.target.value))}
-                className="w-full text-xs p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 bg-white"
+
+          {/* Mode toggle */}
+          <div>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-2">
+              Schedule Mode
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              {/* Sequential */}
+              <button
+                onClick={() => setScheduleMode("sequential")}
+                className={`flex items-start gap-3 px-4 py-3 rounded-xl border-2 text-left transition-all ${
+                  scheduleMode === "sequential"
+                    ? "border-indigo-500 bg-indigo-50"
+                    : "border-gray-200 bg-white hover:border-gray-300"
+                }`}
               >
-                {[15, 20, 25, 30, 45, 60].map((m) => (
-                  <option key={m} value={m}>{m} minutes</option>
-                ))}
-              </select>
+                <span className={`mt-0.5 shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${
+                  scheduleMode === "sequential"
+                    ? "border-indigo-500 bg-indigo-500"
+                    : "border-gray-300"
+                }`}>
+                  {scheduleMode === "sequential" && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-white block" />
+                  )}
+                </span>
+                <div>
+                  <p className="text-xs font-bold text-gray-800">Sequential</p>
+                  <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">
+                    One team at a time. Each gets its own slot back-to-back.
+                  </p>
+                </div>
+              </button>
+
+              {/* Simultaneous */}
+              <button
+                onClick={() => setScheduleMode("simultaneous")}
+                className={`flex items-start gap-3 px-4 py-3 rounded-xl border-2 text-left transition-all ${
+                  scheduleMode === "simultaneous"
+                    ? "border-purple-500 bg-purple-50"
+                    : "border-gray-200 bg-white hover:border-gray-300"
+                }`}
+              >
+                <span className={`mt-0.5 shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${
+                  scheduleMode === "simultaneous"
+                    ? "border-purple-500 bg-purple-500"
+                    : "border-gray-300"
+                }`}>
+                  {scheduleMode === "simultaneous" && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-white block" />
+                  )}
+                </span>
+                <div>
+                  <p className="text-xs font-bold text-gray-800">Simultaneous</p>
+                  <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">
+                    All teams at the same time, in different rooms.
+                  </p>
+                </div>
+              </button>
             </div>
           </div>
+
+          {/* Controls — change layout based on mode */}
+          {scheduleMode === "sequential" ? (
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1.5">Defense Date</label>
+                <DatePicker
+                  selected={date}
+                  onChange={setDate}
+                  dateFormat="MMM d, yyyy"
+                  placeholderText="Pick a date"
+                  className="w-full text-xs p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1.5">First Slot Start</label>
+                <DatePicker
+                  selected={startTime}
+                  onChange={setStartTime}
+                  timeCaption="Start"
+                  {...timePickerProps}
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1.5">Slot Duration</label>
+                <select
+                  value={slotMinutes}
+                  onChange={(e) => setSlotMinutes(Number(e.target.value))}
+                  className="w-full text-xs p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 bg-white"
+                >
+                  {[15, 20, 25, 30, 45, 60].map((m) => (
+                    <option key={m} value={m}>{m} minutes</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1.5">Defense Date</label>
+                <DatePicker
+                  selected={date}
+                  onChange={setDate}
+                  dateFormat="MMM d, yyyy"
+                  placeholderText="Pick a date"
+                  className="w-full text-xs p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1.5">Start Time</label>
+                <DatePicker
+                  selected={startTime}
+                  onChange={setStartTime}
+                  timeCaption="Start"
+                  {...timePickerProps}
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1.5">End Time</label>
+                <DatePicker
+                  selected={endTime}
+                  onChange={setEndTime}
+                  timeCaption="End"
+                  {...timePickerProps}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Simultaneous info banner */}
+          {scheduleMode === "simultaneous" && (
+            <div className="flex items-start gap-2.5 px-4 py-3 bg-purple-50 border border-purple-200 rounded-xl">
+              <svg className="w-4 h-4 text-purple-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-xs text-purple-700 leading-snug">
+                All <span className="font-bold">{selectedProposals.length} teams</span> will be assigned the same defense window.
+                Make sure you have <span className="font-bold">{selectedProposals.length} separate rooms</span> available.
+              </p>
+            </div>
+          )}
 
           {/* Preview table */}
           <div>
@@ -510,8 +638,11 @@ const BulkSchedulePanel = ({ selectedProposals, onConfirm, onCancel, isSaving })
                   <tr>
                     <th className="px-4 py-2.5 text-left text-gray-500 font-semibold w-10">SN</th>
                     <th className="px-4 py-2.5 text-left text-gray-500 font-semibold">Team</th>
-                    <th className="px-4 py-2.5 text-left text-gray-500 font-semibold w-28">Start</th>
-                    <th className="px-4 py-2.5 text-left text-gray-500 font-semibold w-28">End</th>
+                    <th className="px-4 py-2.5 text-left text-gray-500 font-semibold w-24">Start</th>
+                    <th className="px-4 py-2.5 text-left text-gray-500 font-semibold w-24">End</th>
+                    {scheduleMode === "simultaneous" && (
+                      <th className="px-4 py-2.5 text-left text-gray-500 font-semibold w-20">Room</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -523,27 +654,43 @@ const BulkSchedulePanel = ({ selectedProposals, onConfirm, onCancel, isSaving })
                         </span>
                       </td>
                       <td className="px-4 py-2.5">
-                        <p className="font-semibold text-gray-800 truncate max-w-[240px]">{proposal.title}</p>
+                        <p className="font-semibold text-gray-800 truncate max-w-[200px]">{proposal.title}</p>
                         <p className="text-gray-400 text-[10px] mt-0.5">{proposal.course?.courseCode}</p>
                       </td>
-                      <td className="px-4 py-2.5 font-mono text-indigo-600 font-semibold">
+                      <td className="px-4 py-2.5 font-mono font-semibold text-indigo-600">
                         {fmt(start)}
                       </td>
                       <td className="px-4 py-2.5 font-mono text-gray-500">
                         {fmt(end)}
                       </td>
+                      {scheduleMode === "simultaneous" && (
+                        <td className="px-4 py-2.5">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 border border-purple-200">
+                            Room {i + 1}
+                          </span>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
 
-            {date && (
+            {date && scheduleMode === "sequential" && (
               <p className="text-[11px] text-gray-400 mt-2 text-right">
                 Last slot ends at{" "}
                 <span className="font-semibold text-gray-600">
                   {fmt(previewSlots[previewSlots.length - 1]?.end)}
                 </span>
+              </p>
+            )}
+
+            {date && scheduleMode === "simultaneous" && startTime && endTime && (
+              <p className="text-[11px] text-gray-400 mt-2 text-right">
+                All rooms run from{" "}
+                <span className="font-semibold text-gray-600">{fmt(previewSlots[0]?.start)}</span>
+                {" "}to{" "}
+                <span className="font-semibold text-gray-600">{fmt(previewSlots[0]?.end)}</span>
               </p>
             )}
           </div>
