@@ -274,8 +274,8 @@ const MergePanel = ({ selectedProposals, onConfirm, onCancel, isMerging }) => {
                   key={p._id}
                   onClick={() => setPrimaryId(p._id)}
                   className={`w-full text-left px-4 py-3 rounded-xl border-2 transition-all flex items-start gap-3 ${primaryId === p._id
-                      ? "border-indigo-500 bg-indigo-50"
-                      : "border-gray-200 bg-white hover:border-gray-300"
+                    ? "border-indigo-500 bg-indigo-50"
+                    : "border-gray-200 bg-white hover:border-gray-300"
                     }`}
                 >
                   <span className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${primaryId === p._id ? "border-indigo-500 bg-indigo-500 text-white" : "border-gray-300"
@@ -308,10 +308,10 @@ const MergePanel = ({ selectedProposals, onConfirm, onCancel, isMerging }) => {
                 Merged Team Preview
               </label>
               <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${totalMembers > 4
-                  ? "bg-red-100 text-red-700"
-                  : totalMembers >= 3
-                    ? "bg-emerald-100 text-emerald-700"
-                    : "bg-amber-100 text-amber-700"
+                ? "bg-red-100 text-red-700"
+                : totalMembers >= 3
+                  ? "bg-emerald-100 text-emerald-700"
+                  : "bg-amber-100 text-amber-700"
                 }`}>
                 {totalMembers} / 4 members {totalMembers < 3 ? "(min 3)" : ""}
               </span>
@@ -492,13 +492,13 @@ const BulkSchedulePanel = ({ selectedProposals, onConfirm, onCancel, isSaving })
               <button
                 onClick={() => setScheduleMode("sequential")}
                 className={`flex items-start gap-3 px-4 py-3 rounded-xl border-2 text-left transition-all ${scheduleMode === "sequential"
-                    ? "border-indigo-500 bg-indigo-50"
-                    : "border-gray-200 bg-white hover:border-gray-300"
+                  ? "border-indigo-500 bg-indigo-50"
+                  : "border-gray-200 bg-white hover:border-gray-300"
                   }`}
               >
                 <span className={`mt-0.5 shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${scheduleMode === "sequential"
-                    ? "border-indigo-500 bg-indigo-500"
-                    : "border-gray-300"
+                  ? "border-indigo-500 bg-indigo-500"
+                  : "border-gray-300"
                   }`}>
                   {scheduleMode === "sequential" && (
                     <span className="w-1.5 h-1.5 rounded-full bg-white block" />
@@ -516,13 +516,13 @@ const BulkSchedulePanel = ({ selectedProposals, onConfirm, onCancel, isSaving })
               <button
                 onClick={() => setScheduleMode("simultaneous")}
                 className={`flex items-start gap-3 px-4 py-3 rounded-xl border-2 text-left transition-all ${scheduleMode === "simultaneous"
-                    ? "border-purple-500 bg-purple-50"
-                    : "border-gray-200 bg-white hover:border-gray-300"
+                  ? "border-purple-500 bg-purple-50"
+                  : "border-gray-200 bg-white hover:border-gray-300"
                   }`}
               >
                 <span className={`mt-0.5 shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${scheduleMode === "simultaneous"
-                    ? "border-purple-500 bg-purple-500"
-                    : "border-gray-300"
+                  ? "border-purple-500 bg-purple-500"
+                  : "border-gray-300"
                   }`}>
                   {scheduleMode === "simultaneous" && (
                     <span className="w-1.5 h-1.5 rounded-full bg-white block" />
@@ -789,15 +789,11 @@ const SubmissionsPage = () => {
 
   useEffect(() => {
     let result = [...proposals];
-    // SubmissionsPage.jsx - Fix the official tab filter
+    // CORRECT:
     if (activeTab === "official") {
-      result = result.filter((p) => {
-        // +1 to account for the leader (stored in `student`, not in `teamMembers`)
-        const totalMemberCount = (p.teamMembers ?? []).length + 1;
-        return p.serialNumber !== null && totalMemberCount >= 3 && totalMemberCount <= 4;
-      });
+      result = result.filter((p) => p.serialNumber !== null && p.serialNumber !== undefined);
     } else {
-      result = result.filter((p) => p.serialNumber === null);
+      result = result.filter((p) => p.serialNumber === null || p.serialNumber === undefined);
     }
     if (statusFilter !== "all") result = result.filter((p) => p.status === statusFilter);
     if (courseFilter !== "all") result = result.filter((p) => p.course?.courseCode === courseFilter);
@@ -829,13 +825,24 @@ const SubmissionsPage = () => {
   const handleDateUpdate = async (start, end, proposalId) => {
     const utcStart = fromBDToUTC(start).toISOString();
     const utcEnd = fromBDToUTC(end).toISOString();
-    const updated = sortProposalsByDate(
-      proposals.map((p) => p._id === proposalId ? { ...p, defenseDate: utcStart, defenseEndDate: utcEnd } : p)
+
+    // Only update proposals state — useEffect will re-filter automatically
+    setProposals((prev) =>
+      sortProposalsByDate(
+        prev.map((p) =>
+          p._id === proposalId
+            ? { ...p, defenseDate: utcStart, defenseEndDate: utcEnd }
+            : p
+        )
+      )
     );
-    setProposals(updated);
-    setFilteredProposals(updated);
+
     try {
-      await axios.put(`${API_BASE}/proposals/${proposalId}/defense-date`, { date: utcStart, endDate: utcEnd }, getAuthHeader());
+      await axios.put(
+        `${API_BASE}/proposals/${proposalId}/defense-date`,
+        { date: utcStart, endDate: utcEnd },
+        getAuthHeader()
+      );
       toast.success("Schedule Updated");
     } catch {
       toast.error("Failed to schedule");
@@ -1006,16 +1013,16 @@ const SubmissionsPage = () => {
     return (
       <tr
         className={`group transition-colors duration-150 ${isDifferentCourse
-            ? "opacity-40 cursor-not-allowed bg-gray-50"
-            : isBulkDisabled
-              ? "opacity-40 cursor-not-allowed"
-              : bulkMode && isBulkSelected
-                ? "bg-blue-50 border-l-4 border-blue-500"
-                : mergeMode && isSelected
-                  ? "bg-violet-50 border-l-4 border-violet-500"
-                  : mergeMode || bulkMode
-                    ? "hover:bg-gray-50/80 cursor-pointer"
-                    : "hover:bg-gray-50/80"
+          ? "opacity-40 cursor-not-allowed bg-gray-50"
+          : isBulkDisabled
+            ? "opacity-40 cursor-not-allowed"
+            : bulkMode && isBulkSelected
+              ? "bg-blue-50 border-l-4 border-blue-500"
+              : mergeMode && isSelected
+                ? "bg-violet-50 border-l-4 border-violet-500"
+                : mergeMode || bulkMode
+                  ? "hover:bg-gray-50/80 cursor-pointer"
+                  : "hover:bg-gray-50/80"
           }`}
         onClick={(mergeMode || bulkMode) ? handleRowClick : undefined}
         title={
@@ -1030,19 +1037,19 @@ const SubmissionsPage = () => {
         <td className="px-4 py-4 text-center align-top w-10">
           {mergeMode ? (
             <span className={`inline-flex items-center justify-center w-5 h-5 rounded border-2 transition-all ${isSelected
-                ? "bg-violet-600 border-violet-600 text-white"
-                : isDifferentCourse
-                  ? "border-gray-200 bg-gray-100"
-                  : "border-gray-300 bg-white"
+              ? "bg-violet-600 border-violet-600 text-white"
+              : isDifferentCourse
+                ? "border-gray-200 bg-gray-100"
+                : "border-gray-300 bg-white"
               }`}>
               {isSelected && <CheckIcon />}
             </span>
           ) : bulkMode ? (
             <span className={`inline-flex items-center justify-center w-5 h-5 rounded border-2 transition-all ${isBulkSelected
-                ? "bg-blue-600 border-blue-600 text-white"
-                : isBulkDisabled
-                  ? "border-gray-200 bg-gray-100"
-                  : "border-gray-300 bg-white"
+              ? "bg-blue-600 border-blue-600 text-white"
+              : isBulkDisabled
+                ? "border-gray-200 bg-gray-100"
+                : "border-gray-300 bg-white"
               }`}>
               {isBulkSelected && <CheckIcon />}
             </span>
@@ -1141,10 +1148,10 @@ const SubmissionsPage = () => {
         <td className="px-6 py-4 text-right align-top whitespace-nowrap">
           {mergeMode ? (
             <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg transition-colors ${isSelected
-                ? "bg-violet-100 text-violet-700"
-                : isDifferentCourse
-                  ? "text-gray-300"
-                  : "text-gray-400"
+              ? "bg-violet-100 text-violet-700"
+              : isDifferentCourse
+                ? "text-gray-300"
+                : "text-gray-400"
               }`}>
               {isSelected
                 ? "Selected"
@@ -1154,10 +1161,10 @@ const SubmissionsPage = () => {
             </span>
           ) : bulkMode ? (
             <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg transition-colors ${isBulkSelected
-                ? "bg-blue-100 text-blue-700"
-                : isBulkDisabled
-                  ? "text-gray-300"
-                  : "text-gray-400"
+              ? "bg-blue-100 text-blue-700"
+              : isBulkDisabled
+                ? "text-gray-300"
+                : "text-gray-400"
               }`}>
               {isBulkSelected ? "Selected" : isBulkDisabled ? "Not approved" : "Click to select"}
             </span>
@@ -1185,7 +1192,9 @@ const SubmissionsPage = () => {
     );
   };
 
-  const teamRequestCount = proposals.filter((p) => p.serialNumber === null).length;
+  const teamRequestCount = proposals.filter(
+    (p) => p.serialNumber === null || p.serialNumber === undefined
+  ).length;
 
   return (
     <div className="min-h-screen p-6 md:p-2 font-sans">
@@ -1291,8 +1300,8 @@ const SubmissionsPage = () => {
           <button
             onClick={toggleMergeMode}
             className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all ${mergeMode
-                ? "bg-violet-600 text-white hover:bg-violet-700"
-                : "bg-white border border-gray-300 text-gray-700 hover:border-violet-400 hover:text-violet-700"
+              ? "bg-violet-600 text-white hover:bg-violet-700"
+              : "bg-white border border-gray-300 text-gray-700 hover:border-violet-400 hover:text-violet-700"
               }`}
           >
             <MergeIcon />
@@ -1337,8 +1346,8 @@ const SubmissionsPage = () => {
           <button
             onClick={toggleBulkMode}
             className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all ${bulkMode
-                ? "bg-blue-600 text-white hover:bg-blue-700"
-                : "bg-white border border-gray-300 text-gray-700 hover:border-blue-400 hover:text-blue-700"
+              ? "bg-blue-600 text-white hover:bg-blue-700"
+              : "bg-white border border-gray-300 text-gray-700 hover:border-blue-400 hover:text-blue-700"
               }`}
           >
             <BulkCalendarIcon />
@@ -1400,9 +1409,9 @@ const SubmissionsPage = () => {
                   >
                     {isBulkAll ? (
                       <span className={`inline-flex items-center justify-center w-5 h-5 rounded border-2 transition-all ${filteredProposals.filter(p => p.status === "approved").length > 0 &&
-                          filteredProposals.filter(p => p.status === "approved").every(p => selectedForBulk.some(s => s._id === p._id))
-                          ? "bg-blue-600 border-blue-600 text-white"
-                          : "border-gray-400 bg-white"
+                        filteredProposals.filter(p => p.status === "approved").every(p => selectedForBulk.some(s => s._id === p._id))
+                        ? "bg-blue-600 border-blue-600 text-white"
+                        : "border-gray-400 bg-white"
                         }`}>
                         {filteredProposals.filter(p => p.status === "approved").length > 0 &&
                           filteredProposals.filter(p => p.status === "approved").every(p => selectedForBulk.some(s => s._id === p._id))
