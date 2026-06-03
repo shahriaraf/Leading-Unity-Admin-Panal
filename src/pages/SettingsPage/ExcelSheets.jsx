@@ -92,6 +92,28 @@ const computeWeightedDefenseAvg = (presentMarks) => {
 
 
 // =============================================================================
+// REGULAR (SIMPLE) AVERAGE FOR DEFENSE BOARD MARKS
+// =============================================================================
+//
+// Plain arithmetic mean — sum each criteria across all present supervisors,
+// then divide by the number of present supervisors.
+//
+const computeRegularDefenseAvg = (presentMarks) => {
+  if (!presentMarks || presentMarks.length === 0) {
+    return { avgC1: 0, avgC2: 0, avgTotal: 0 };
+  }
+  const n    = presentMarks.length;
+  const sumC1 = presentMarks.reduce((acc, mk) => acc + mk.criteria1, 0);
+  const sumC2 = presentMarks.reduce((acc, mk) => acc + mk.criteria2, 0);
+  return {
+    avgC1:  sumC1 / n,
+    avgC2:  sumC2 / n,
+    avgTotal: (sumC1 + sumC2) / n,
+  };
+};
+
+
+// =============================================================================
 // 1. MAIN REPORT (Detailed Marks & Info)
 // =============================================================================
 export const generateMainReport = async (proposals, evalConfig, allSupervisors, courseFilter = null) => {
@@ -128,6 +150,9 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
     { header: `Def: ${evalConfig.criteria1Name} (W.Avg)`,    key: 'd1',    width: 14 },
     { header: `Def: ${evalConfig.criteria2Name} (W.Avg)`,    key: 'd2',    width: 14 },
     { header: 'Def Total (W.Avg)',                           key: 'dt',    width: 14 },
+    { header: `Def: ${evalConfig.criteria1Name} (Avg)`,      key: 'ra1',   width: 14 },
+    { header: `Def: ${evalConfig.criteria2Name} (Avg)`,      key: 'ra2',   width: 14 },
+    { header: 'Def Total (Avg)',                             key: 'rat',   width: 14 },
     { header: 'Grand Total',                                 key: 'gt',    width: 12 },
   ];
 
@@ -149,6 +174,7 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
 
       let o1 = '-', o2 = '-', ot = '-';
       let d1 = '-', d2 = '-', dt = '-', gt = '-', indiv = '-';
+      let ra1 = '-', ra2 = '-', rat = '-'; // regular average columns
       let valO1 = 0, valO2 = 0;
 
       // ── Supervisor (own-team) marks — unchanged ─────────────────────────
@@ -172,16 +198,25 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
         const presentDefMarks = defMarks.filter(mk => !mk.isAbsent);
 
         if (presentDefMarks.length > 0) {
-          // 🟢 WEIGHTED AVERAGE (replaces simple average)
+          // 🟢 WEIGHTED AVERAGE
           const { weightedC1, weightedC2, weightedTotal } =
             computeWeightedDefenseAvg(presentDefMarks);
 
           d1 = weightedC1.toFixed(1);
           d2 = weightedC2.toFixed(1);
           dt = weightedTotal.toFixed(1);
+
+          // 🟢 REGULAR (SIMPLE) AVERAGE
+          const { avgC1, avgC2, avgTotal } =
+            computeRegularDefenseAvg(presentDefMarks);
+
+          ra1 = avgC1.toFixed(1);
+          ra2 = avgC2.toFixed(1);
+          rat = avgTotal.toFixed(1);
         } else {
           // All board supervisors marked this student absent
           d1 = 'Abs'; d2 = 'Abs'; dt = '0';
+          ra1 = 'Abs'; ra2 = 'Abs'; rat = '0';
         }
       }
 
@@ -205,7 +240,7 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
         email: m.email || '-',
         phone: m.mobile || '-',
         link:  item.description || 'N/A',
-        o1, o2, ot, indiv, d1, d2, dt, gt,
+        o1, o2, ot, indiv, d1, d2, dt, ra1, ra2, rat, gt,
       };
 
       // Clickable hyperlink for proposal link

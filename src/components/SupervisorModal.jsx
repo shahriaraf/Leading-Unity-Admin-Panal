@@ -8,14 +8,14 @@ const getAuthHeader = () => {
   return { headers: { Authorization: `Bearer ${userInfo?.token}` } };
 };
 
-const INITIAL_FORM = { name: '', abbreviation: '', designation: '', password: '' };
+// ✅ ADDED email to initial form
+const INITIAL_FORM = { name: '', abbreviation: '', designation: '', password: '', email: '' };
 
 const SupervisorModal = ({ isOpen, onClose, onSuccess }) => {
   const [form, setForm]       = useState(INITIAL_FORM);
   const [error, setError]     = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Reset form when modal closes
   useEffect(() => {
     if (!isOpen) { setForm(INITIAL_FORM); setError(''); }
   }, [isOpen]);
@@ -31,7 +31,7 @@ const SupervisorModal = ({ isOpen, onClose, onSuccess }) => {
 
     try {
       await axios.post(`${API_BASE}/users/supervisor`, payload, getAuthHeader());
-      onSuccess(); // Refresh parent list
+      onSuccess();
       onClose();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create supervisor.');
@@ -77,6 +77,19 @@ const SupervisorModal = ({ isOpen, onClose, onSuccess }) => {
             <input
               type="text" value={form.name} onChange={set('name')} required
               placeholder="e.g. Dr. John Doe"
+              className="w-full px-4 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:bg-white transition-all placeholder-gray-400 text-gray-800"
+            />
+          </div>
+
+          {/* ✅ ADDED — Email field for forgot-password OTP */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+              Email Address
+              <span className="ml-1.5 text-xs font-normal text-gray-400">(used for password reset)</span>
+            </label>
+            <input
+              type="email" value={form.email} onChange={set('email')} required
+              placeholder="e.g. john.doe@university.edu"
               className="w-full px-4 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:bg-white transition-all placeholder-gray-400 text-gray-800"
             />
           </div>

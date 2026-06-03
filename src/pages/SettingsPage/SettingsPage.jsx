@@ -33,14 +33,8 @@ import { SectionHeader } from "./Ui";
  */
 
 const DEFAULT_CONFIG = {
-  criteria1Name: "Defense 1",
-  criteria1Max: 30,
-  criteria2Name: "Defense 2",
-  criteria2Max: 30,
-  ownTeamCriteria1Name: "Own 1",
-  ownTeamCriteria1Max: 40,
-  ownTeamCriteria2Name: "Own 2",
-  ownTeamCriteria2Max: 40,
+  defenseCriteria:  [{ name: 'Criteria 1', max: 50 }, { name: 'Criteria 2', max: 50 }],
+  ownTeamCriteria:  [{ name: 'Project Implementation', max: 60 }, { name: 'Continuous Assessment', max: 40 }],
 };
 
 const DeadlinePickerStyles = () => (
@@ -94,15 +88,14 @@ const SettingsPage = () => {
         const s = settingsRes.data;
         setIsRegistrationOpen(s.isStudentRegistrationOpen ?? false);
         setSubmissionDeadline(s.submissionDeadline ? new Date(s.submissionDeadline) : null);
+        // Load dynamic criteria arrays, fall back to defaults if not yet saved
         const config = {
-          criteria1Name:       s.criteria1Name        || DEFAULT_CONFIG.criteria1Name,
-          criteria1Max:        s.criteria1Max         || DEFAULT_CONFIG.criteria1Max,
-          criteria2Name:       s.criteria2Name        || DEFAULT_CONFIG.criteria2Name,
-          criteria2Max:        s.criteria2Max         || DEFAULT_CONFIG.criteria2Max,
-          ownTeamCriteria1Name:s.ownTeamCriteria1Name || DEFAULT_CONFIG.ownTeamCriteria1Name,
-          ownTeamCriteria1Max: s.ownTeamCriteria1Max  || DEFAULT_CONFIG.ownTeamCriteria1Max,
-          ownTeamCriteria2Name:s.ownTeamCriteria2Name || DEFAULT_CONFIG.ownTeamCriteria2Name,
-          ownTeamCriteria2Max: s.ownTeamCriteria2Max  || DEFAULT_CONFIG.ownTeamCriteria2Max,
+          defenseCriteria: (s.defenseCriteria && s.defenseCriteria.length > 0)
+            ? s.defenseCriteria
+            : DEFAULT_CONFIG.defenseCriteria,
+          ownTeamCriteria: (s.ownTeamCriteria && s.ownTeamCriteria.length > 0)
+            ? s.ownTeamCriteria
+            : DEFAULT_CONFIG.ownTeamCriteria,
         };
         setEvalConfig(config);
         setSavedConfig(config); // snapshot for dirty detection
