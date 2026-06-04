@@ -33,8 +33,9 @@ import { SectionHeader } from "./Ui";
  */
 
 const DEFAULT_CONFIG = {
+  totalMarks:       100,
   defenseCriteria:  [{ name: 'Criteria 1', max: 50 }, { name: 'Criteria 2', max: 50 }],
-  ownTeamCriteria:  [{ name: 'Project Implementation', max: 60 }, { name: 'Continuous Assessment', max: 40 }],
+  ownTeamCriteria:  [],
 };
 
 const DeadlinePickerStyles = () => (
@@ -88,14 +89,12 @@ const SettingsPage = () => {
         const s = settingsRes.data;
         setIsRegistrationOpen(s.isStudentRegistrationOpen ?? false);
         setSubmissionDeadline(s.submissionDeadline ? new Date(s.submissionDeadline) : null);
-        // Load dynamic criteria arrays, fall back to defaults if not yet saved
         const config = {
-          defenseCriteria: (s.defenseCriteria && s.defenseCriteria.length > 0)
-            ? s.defenseCriteria
-            : DEFAULT_CONFIG.defenseCriteria,
-          ownTeamCriteria: (s.ownTeamCriteria && s.ownTeamCriteria.length > 0)
-            ? s.ownTeamCriteria
-            : DEFAULT_CONFIG.ownTeamCriteria,
+          totalMarks:      s.totalMarks       || DEFAULT_CONFIG.totalMarks,
+          defenseCriteria: (s.defenseCriteria  && s.defenseCriteria.length  > 0)
+            ? s.defenseCriteria  : DEFAULT_CONFIG.defenseCriteria,
+          ownTeamCriteria: (s.ownTeamCriteria  && s.ownTeamCriteria.length  > 0)
+            ? s.ownTeamCriteria  : DEFAULT_CONFIG.ownTeamCriteria,
         };
         setEvalConfig(config);
         setSavedConfig(config); // snapshot for dirty detection
@@ -114,7 +113,7 @@ const SettingsPage = () => {
       toast.success(newState ? openMsg : closeMsg);
     } catch (error) {
       setState(state);
-      toast.error("Network error: failed to sync with server");
+      toast.error("Network error: failed to sync with server",error);
     }
   };
 

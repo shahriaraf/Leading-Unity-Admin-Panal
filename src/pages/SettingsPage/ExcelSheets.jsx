@@ -1,12 +1,10 @@
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
-// --- Helper: Get Supervisor Abbreviation (Strict) ---
+// --- Helper: Get Supervisor Abbreviation ---
 const getSupLabel = (sup, allSupervisors = []) => {
   if (!sup) return 'N/A';
-  if (typeof sup === 'object' && sup.name) {
-    return sup.abbreviation || sup.name;
-  }
+  if (typeof sup === 'object' && sup.name) return sup.abbreviation || sup.name;
   if (allSupervisors.length > 0) {
     const found = allSupervisors.find(s => s._id === sup);
     if (found) return found.abbreviation || found.name;
@@ -30,91 +28,72 @@ const formatDateHeader = (isoDate) => {
   return `Defense Schedule: ${d.toLocaleDateString('en-US', options)}`;
 };
 
+// --- Helper: Sum a criteria[] array safely ---
+// Handles both new dynamic array (criteria: [n1, n2, ...])
+// and old flat fields (criteria1, criteria2) for backwards compat.
+const sumCriteria = (mark) => {
+  if (!mark) return 0;
+  if (Array.isArray(mark.criteria) && mark.criteria.length > 0) {
+    return mark.criteria.reduce((s, v) => s + (Number(v) || 0), 0);
+  }
+  // Backwards compat: old marks stored as criteria1/criteria2
+  return (Number(mark.criteria1) || 0) + (Number(mark.criteria2) || 0);
+};
+
+const getCriterionValue = (mark, index) => {
+  if (!mark) return 0;
+  if (Array.isArray(mark.criteria) && mark.criteria.length > index) {
+    return Number(mark.criteria[index]) || 0;
+  }
+  if (index === 0) return Number(mark.criteria1) || 0;
+  if (index === 1) return Number(mark.criteria2) || 0;
+  return 0;
+};
 
 // =============================================================================
 // WEIGHTED AVERAGE FOR DEFENSE BOARD MARKS
 // =============================================================================
-//
-// How it works:
-//   1. Each board supervisor submits criteria1 + criteria2 for a student.
-//   2. Rank all present supervisors by their total (criteria1 + criteria2),
-//      highest first.
-//   3. Top 2 supervisors get weight 2; all others get weight 1.
-//   4. Weighted avg for each criteria =
-//        Σ(criteria_i × weight_i) / Σ(weight_i)
-//
-// Example — three supervisors give totals: 40, 40, 20
-//   Weights assigned:        2,  2,  1   → total weight = 5
-//   Weighted sum (criteria): computed per-criteria using same weights
-//   Result: pulls final average toward the two highest scorers.
-//
 const computeWeightedDefenseAvg = (presentMarks) => {
-  // presentMarks: array of { criteria1, criteria2 } (absent ones already excluded)
   if (!presentMarks || presentMarks.length === 0) {
-    return { weightedC1: 0, weightedC2: 0, weightedTotal: 0, totalWeight: 0 };
+    return { weightedTotal: 0, totalWeight: 0 };
   }
 
-  // Step 1: Assign a rank-based weight to each supervisor's mark.
-  //         Sort by total descending, top 2 get weight 2, rest get weight 1.
   const withTotals = presentMarks.map((mk, idx) => ({
     ...mk,
-    total: mk.criteria1 + mk.criteria2,
+    total: sumCriteria(mk),
     originalIdx: idx,
   }));
 
-  // Sort descending by total to determine rank
   const sorted = [...withTotals].sort((a, b) => b.total - a.total);
-
-  // Assign weights: top 2 → 2, rest → 1
   const weightMap = new Map();
-  sorted.forEach((mk, rank) => {
-    weightMap.set(mk.originalIdx, rank < 2 ? 2 : 1);
-  });
+  sorted.forEach((mk, rank) => weightMap.set(mk.originalIdx, rank < 2 ? 2 : 1));
 
-  // Step 2: Compute weighted sums and total weight
-  let sumW   = 0;
-  let sumC1W = 0;
-  let sumC2W = 0;
-
+  let sumW = 0;
+  let sumTotalW = 0;
   withTotals.forEach((mk) => {
     const w = weightMap.get(mk.originalIdx);
-    sumW   += w;
-    sumC1W += mk.criteria1 * w;
-    sumC2W += mk.criteria2 * w;
+    sumW      += w;
+    sumTotalW += mk.total * w;
   });
 
-  const weightedC1    = sumC1W / sumW;
-  const weightedC2    = sumC2W / sumW;
-  const weightedTotal = weightedC1 + weightedC2;
-
-  return { weightedC1, weightedC2, weightedTotal, totalWeight: sumW };
+  return {
+    weightedTotal: sumTotalW / sumW,
+    totalWeight: sumW,
+  };
 };
-
 
 // =============================================================================
 // REGULAR (SIMPLE) AVERAGE FOR DEFENSE BOARD MARKS
 // =============================================================================
-//
-// Plain arithmetic mean — sum each criteria across all present supervisors,
-// then divide by the number of present supervisors.
-//
 const computeRegularDefenseAvg = (presentMarks) => {
-  if (!presentMarks || presentMarks.length === 0) {
-    return { avgC1: 0, avgC2: 0, avgTotal: 0 };
-  }
-  const n    = presentMarks.length;
-  const sumC1 = presentMarks.reduce((acc, mk) => acc + mk.criteria1, 0);
-  const sumC2 = presentMarks.reduce((acc, mk) => acc + mk.criteria2, 0);
-  return {
-    avgC1:  sumC1 / n,
-    avgC2:  sumC2 / n,
-    avgTotal: (sumC1 + sumC2) / n,
-  };
+  if (!presentMarks || presentMarks.length === 0) return { avgTotal: 0 };
+  const n = presentMarks.length;
+  const sumTotal = presentMarks.reduce((s, mk) => s + sumCriteria(mk), 0);
+  return { avgTotal: sumTotal / n };
 };
 
-
 // =============================================================================
-// 1. MAIN REPORT (Detailed Marks & Info)
+// 1. MAIN REPORT
 // =============================================================================
 export const generateMainReport = async (proposals, evalConfig, allSupervisors, courseFilter = null) => {
   let data = proposals.filter(p => {
@@ -127,35 +106,85 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
   data.sort((a, b) => (a.serialNumber ?? 0) - (b.serialNumber ?? 0));
   if (!data.length) throw new Error('NO_DATA');
 
-  const workbook = new ExcelJS.Workbook();
+  // ── Resolve criteria names from the new dynamic arrays ───────────────────
+  // evalConfig.ownTeamCriteria  = [{name, max}, ...]
+  // evalConfig.defenseCriteria  = [{name, max}, ...]
+  // Falls back gracefully if still using the old flat-field format.
+  const ownCriteria = Array.isArray(evalConfig.ownTeamCriteria) && evalConfig.ownTeamCriteria.length > 0
+    ? evalConfig.ownTeamCriteria
+    : [
+        { name: evalConfig.ownTeamCriteria1Name || 'Sup C1' },
+        { name: evalConfig.ownTeamCriteria2Name || 'Sup C2' },
+      ];
+
+  const defCriteria = Array.isArray(evalConfig.defenseCriteria) && evalConfig.defenseCriteria.length > 0
+    ? evalConfig.defenseCriteria
+    : [
+        { name: evalConfig.criteria1Name || 'Def C1' },
+        { name: evalConfig.criteria2Name || 'Def C2' },
+      ];
+
+  const workbook  = new ExcelJS.Workbook();
   const sheetName = courseFilter ? courseFilter.courseCode : 'Master Sheet';
   const worksheet = workbook.addWorksheet(sheetName.substring(0, 30));
 
-  worksheet.columns = [
-    { header: 'ID',                                          key: 'sn',    width: 6  },
-    { header: 'Course',                                      key: 'c',     width: 12 },
-    { header: 'Title',                                       key: 'title', width: 35 },
-    { header: 'Team Members',                                key: 'count', width: 15 },
-    { header: 'Name',                                        key: 'name',  width: 25 },
-    { header: 'Student ID',                                  key: 'sid',   width: 18 },
-    { header: 'Supervisor',                                  key: 'sup',   width: 15 },
-    { header: 'CGPA',                                        key: 'cgpa',  width: 10 },
-    { header: 'Email',                                       key: 'email', width: 30 },
-    { header: 'Phone',                                       key: 'phone', width: 15 },
-    { header: 'Proposal Drive Link',                         key: 'link',  width: 40 },
-    { header: `Sup: ${evalConfig.ownTeamCriteria1Name}`,     key: 'o1',    width: 12 },
-    { header: `Sup: ${evalConfig.ownTeamCriteria2Name}`,     key: 'o2',    width: 12 },
-    { header: 'Sup Total',                                   key: 'ot',    width: 10 },
-    { header: 'Board Scores (each supervisor)',               key: 'indiv', width: 26 },
-    { header: `Def: ${evalConfig.criteria1Name} (W.Avg)`,    key: 'd1',    width: 14 },
-    { header: `Def: ${evalConfig.criteria2Name} (W.Avg)`,    key: 'd2',    width: 14 },
-    { header: 'Def Total (W.Avg)',                           key: 'dt',    width: 14 },
-    { header: `Def: ${evalConfig.criteria1Name} (Avg)`,      key: 'ra1',   width: 14 },
-    { header: `Def: ${evalConfig.criteria2Name} (Avg)`,      key: 'ra2',   width: 14 },
-    { header: 'Def Total (Avg)',                             key: 'rat',   width: 14 },
-    { header: 'Grand Total',                                 key: 'gt',    width: 12 },
+  // ── Build dynamic columns ────────────────────────────────────────────────
+  // Fixed left columns
+  const fixedLeft = [
+    { header: 'ID',                    key: 'sn',    width: 6  },
+    { header: 'Course',                key: 'c',     width: 12 },
+    { header: 'Title',                 key: 'title', width: 35 },
+    { header: 'Team Members',          key: 'count', width: 15 },
+    { header: 'Name',                  key: 'name',  width: 25 },
+    { header: 'Student ID',            key: 'sid',   width: 18 },
+    { header: 'Supervisor',            key: 'sup',   width: 15 },
+    { header: 'CGPA',                  key: 'cgpa',  width: 10 },
+    { header: 'Email',                 key: 'email', width: 30 },
+    { header: 'Phone',                 key: 'phone', width: 15 },
+    { header: 'Proposal Drive Link',   key: 'link',  width: 40 },
   ];
 
+  // Supervisor criteria columns (one per criterion)
+  const ownCols = ownCriteria.map((c, i) => ({
+    header: `Sup: ${c.name}`,
+    key:    `o${i}`,
+    width:  13,
+  }));
+  const ownTotalCol = { header: 'Sup Total', key: 'ot', width: 10 };
+
+  // Defense individual scores column
+  const indivCol = { header: 'Board Scores (each supervisor)', key: 'indiv', width: 26 };
+
+  // Defense W.Avg columns (one per criterion + total)
+  const defWAvgCols = defCriteria.map((c, i) => ({
+    header: `Def: ${c.name} (W.Avg)`,
+    key:    `dw${i}`,
+    width:  15,
+  }));
+  const defWAvgTotalCol = { header: 'Def Total (W.Avg)', key: 'dwt', width: 15 };
+
+  // Defense Regular Avg columns (one per criterion + total)
+  const defAvgCols = defCriteria.map((c, i) => ({
+    header: `Def: ${c.name} (Avg)`,
+    key:    `da${i}`,
+    width:  15,
+  }));
+  const defAvgTotalCol = { header: 'Def Total (Avg)', key: 'dat', width: 15 };
+
+  // Grand total columns
+  const gtWAvgCol = { header: 'Grand Total (W.Avg)', key: 'gt',  width: 18 };
+  const gtAvgCol  = { header: 'Grand Total (Avg)',   key: 'gta', width: 18 };
+
+  worksheet.columns = [
+    ...fixedLeft,
+    ...ownCols, ownTotalCol,
+    indivCol,
+    ...defWAvgCols, defWAvgTotalCol,
+    ...defAvgCols,  defAvgTotalCol,
+    gtWAvgCol, gtAvgCol,
+  ];
+
+  // Style header row
   const headerRow = worksheet.getRow(1);
   headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
   headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
@@ -163,70 +192,98 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
   let currentRow = 2;
 
   data.forEach((item) => {
-    const team = item.teamMembers || [];
+    const team     = item.teamMembers || [];
     const startRow = currentRow;
-    const supStr = getSupLabel(item.assignedSupervisor, allSupervisors);
+    const supStr   = getSupLabel(item.assignedSupervisor, allSupervisors);
     const allMarks = item.marks || [];
 
     team.forEach((m) => {
       const ownMark  = allMarks.find(mk => mk.studentId === m.studentId && mk.type === 'own');
       const defMarks = allMarks.filter(mk => mk.studentId === m.studentId && mk.type === 'defense');
 
-      let o1 = '-', o2 = '-', ot = '-';
-      let d1 = '-', d2 = '-', dt = '-', gt = '-', indiv = '-';
-      let ra1 = '-', ra2 = '-', rat = '-'; // regular average columns
-      let valO1 = 0, valO2 = 0;
+      // ── Supervisor (own-team) marks ──────────────────────────────────────
+      const ownVals   = ownCriteria.map((_, i) => ownMark && !ownMark.isAbsent ? getCriterionValue(ownMark, i) : null);
+      const ownTotal  = ownMark
+        ? (ownMark.isAbsent ? 0 : sumCriteria(ownMark))
+        : null;
 
-      // ── Supervisor (own-team) marks — unchanged ─────────────────────────
-      if (ownMark) {
-        if (ownMark.isAbsent) {
-          o1 = 'Abs'; o2 = 'Abs'; ot = '0';
-        } else {
-          valO1 = ownMark.criteria1;
-          valO2 = ownMark.criteria2;
-          o1 = valO1; o2 = valO2; ot = valO1 + valO2;
-        }
-      }
+      const ownCellVals = {};
+      ownCriteria.forEach((_, i) => {
+        ownCellVals[`o${i}`] = ownMark
+          ? (ownMark.isAbsent ? 'Abs' : ownVals[i])
+          : '-';
+      });
+      const otCell = ownMark ? (ownMark.isAbsent ? '0' : ownTotal) : '-';
 
-      // ── Defense board marks — NOW USES WEIGHTED AVERAGE ────────────────
+      // ── Defense board marks ──────────────────────────────────────────────
+      let indiv = '-';
+      const defWAvgCellVals = {};
+      const defAvgCellVals  = {};
+      let dwtCell = '-', datCell = '-';
+
+      defCriteria.forEach((_, i) => {
+        defWAvgCellVals[`dw${i}`] = '-';
+        defAvgCellVals[`da${i}`]  = '-';
+      });
+
       if (defMarks.length > 0) {
-        // Build the "individual scores" summary string (unchanged display)
         indiv = defMarks
-          .map(mk => mk.isAbsent ? 'Abs' : (mk.criteria1 + mk.criteria2))
+          .map(mk => mk.isAbsent ? 'Abs' : sumCriteria(mk))
           .join(', ');
 
         const presentDefMarks = defMarks.filter(mk => !mk.isAbsent);
 
         if (presentDefMarks.length > 0) {
-          // 🟢 WEIGHTED AVERAGE
-          const { weightedC1, weightedC2, weightedTotal } =
-            computeWeightedDefenseAvg(presentDefMarks);
+          const n = presentDefMarks.length;
 
-          d1 = weightedC1.toFixed(1);
-          d2 = weightedC2.toFixed(1);
-          dt = weightedTotal.toFixed(1);
+          // Per-criterion weighted avg
+          defCriteria.forEach((_, i) => {
+            const withTotals = presentDefMarks.map((mk, idx) => ({
+              val: getCriterionValue(mk, i),
+              total: sumCriteria(mk),
+              originalIdx: idx,
+            }));
+            const sorted = [...withTotals].sort((a, b) => b.total - a.total);
+            const weightMap = new Map();
+            sorted.forEach((mk, rank) => weightMap.set(mk.originalIdx, rank < 2 ? 2 : 1));
+            let sumW = 0, sumVW = 0;
+            withTotals.forEach(mk => {
+              const w = weightMap.get(mk.originalIdx);
+              sumW  += w;
+              sumVW += mk.val * w;
+            });
+            defWAvgCellVals[`dw${i}`] = (sumVW / sumW).toFixed(1);
 
-          // 🟢 REGULAR (SIMPLE) AVERAGE
-          const { avgC1, avgC2, avgTotal } =
-            computeRegularDefenseAvg(presentDefMarks);
+            // Regular avg per criterion
+            const sumV = presentDefMarks.reduce((s, mk) => s + getCriterionValue(mk, i), 0);
+            defAvgCellVals[`da${i}`] = (sumV / n).toFixed(1);
+          });
 
-          ra1 = avgC1.toFixed(1);
-          ra2 = avgC2.toFixed(1);
-          rat = avgTotal.toFixed(1);
+          const { weightedTotal } = computeWeightedDefenseAvg(presentDefMarks);
+          const { avgTotal }      = computeRegularDefenseAvg(presentDefMarks);
+
+          dwtCell = weightedTotal.toFixed(1);
+          datCell = avgTotal.toFixed(1);
         } else {
-          // All board supervisors marked this student absent
-          d1 = 'Abs'; d2 = 'Abs'; dt = '0';
-          ra1 = 'Abs'; ra2 = 'Abs'; rat = '0';
+          // All absent
+          defCriteria.forEach((_, i) => {
+            defWAvgCellVals[`dw${i}`] = 'Abs';
+            defAvgCellVals[`da${i}`]  = 'Abs';
+          });
+          dwtCell = '0';
+          datCell = '0';
         }
       }
 
-      // ── Grand Total ─────────────────────────────────────────────────────
-      const ownTotal = (ownMark && !ownMark.isAbsent) ? (valO1 + valO2) : 0;
-      const defTotal = dt !== '-' && dt !== '0' && d1 !== 'Abs'
-        ? parseFloat(dt)
-        : (dt === '0' ? 0 : 0);
-      gt = (ownTotal + defTotal).toFixed(1);
+      // ── Grand Totals ─────────────────────────────────────────────────────
+      const numOwnTotal  = (ownMark && !ownMark.isAbsent) ? ownTotal : 0;
+      const numDefWAvg   = dwtCell !== '-' ? parseFloat(dwtCell)  : 0;
+      const numDefAvg    = datCell !== '-' ? parseFloat(datCell)   : 0;
 
+      const gtWAvg = (numOwnTotal + numDefWAvg).toFixed(1);
+      const gtAvg  = (numOwnTotal + numDefAvg).toFixed(1);
+
+      // ── Write row ────────────────────────────────────────────────────────
       const row = worksheet.getRow(currentRow);
       row.values = {
         sn:    item.serialNumber ?? '—',
@@ -236,14 +293,22 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
         name:  m.name,
         sid:   m.studentId,
         sup:   supStr,
-        cgpa:  m.cgpa || '-',
+        cgpa:  m.cgpa  || '-',
         email: m.email || '-',
         phone: m.mobile || '-',
         link:  item.description || 'N/A',
-        o1, o2, ot, indiv, d1, d2, dt, ra1, ra2, rat, gt,
+        ...ownCellVals,
+        ot: otCell,
+        indiv,
+        ...defWAvgCellVals,
+        dwt: dwtCell,
+        ...defAvgCellVals,
+        dat: datCell,
+        gt:  gtWAvg,
+        gta: gtAvg,
       };
 
-      // Clickable hyperlink for proposal link
+      // Hyperlink for proposal link
       if (item.description && item.description.startsWith('http')) {
         const linkCell = row.getCell('link');
         linkCell.value = {
@@ -254,7 +319,13 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
         linkCell.font = { color: { argb: 'FF0000FF' }, underline: true };
       }
 
-      // Cell styling
+      // Highlight Grand Total (W.Avg) column
+      row.getCell('gt').fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDDEBF7' } };
+      row.getCell('gt').font  = { bold: true };
+      // Highlight Grand Total (Avg) column
+      row.getCell('gta').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2EFDA' } };
+      row.getCell('gta').font = { bold: true };
+
       row.eachCell({ includeEmpty: true }, (cell) => {
         cell.border = {
           top:    { style: 'thin' },
@@ -285,7 +356,7 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
 
 
 // =============================================================================
-// 2. DEFENSE SCHEDULE REPORT (Printable) — unchanged
+// 2. DEFENSE SCHEDULE REPORT — unchanged
 // =============================================================================
 export const generateDefenseSchedule = async (proposals, allSupervisors, courseFilter = null) => {
   let data = courseFilter
@@ -303,17 +374,17 @@ export const generateDefenseSchedule = async (proposals, allSupervisors, courseF
   const worksheet = workbook.addWorksheet(sheetName.substring(0, 30));
 
   worksheet.columns = [
-    { header: 'SL',           key: 'sn',    width: 5  },
-    { header: 'Schedule',     key: 'time',  width: 25 },
-    { header: 'Student ID',   key: 'id',    width: 18 },
-    { header: 'Name',         key: 'name',  width: 25 },
-    { header: 'Project Title',key: 'title', width: 35 },
-    { header: 'Supervisor',   key: 'sup',   width: 15 },
-    { header: 'Signature',    key: 'sign',  width: 20 },
+    { header: 'SL',            key: 'sn',    width: 5  },
+    { header: 'Schedule',      key: 'time',  width: 25 },
+    { header: 'Student ID',    key: 'id',    width: 18 },
+    { header: 'Name',          key: 'name',  width: 25 },
+    { header: 'Project Title', key: 'title', width: 35 },
+    { header: 'Supervisor',    key: 'sup',   width: 15 },
+    { header: 'Signature',     key: 'sign',  width: 20 },
   ];
 
   const headerRow = worksheet.getRow(1);
-  headerRow.font = { name: 'Calibri', size: 11, bold: true };
+  headerRow.font      = { name: 'Calibri', size: 11, bold: true };
   headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
   headerRow.eachCell((cell) => {
     cell.fill   = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF99F6C9' } };
@@ -328,7 +399,6 @@ export const generateDefenseSchedule = async (proposals, allSupervisors, courseF
     if (team.length === 0) return;
 
     const thisDateStr = new Date(item.defenseDate).toDateString();
-
     if (thisDateStr !== lastDateStr) {
       const dateRow = worksheet.getRow(currentRow);
       dateRow.values = [formatDateHeader(item.defenseDate)];
@@ -348,13 +418,9 @@ export const generateDefenseSchedule = async (proposals, allSupervisors, courseF
     team.forEach((m) => {
       const row = worksheet.getRow(currentRow);
       row.values = {
-        sn:    item.serialNumber ?? '—',
-        time:  timeStr,
-        id:    m.studentId,
-        name:  m.name,
-        title: item.title,
-        sup:   supStr,
-        sign:  '',
+        sn: item.serialNumber ?? '—', time: timeStr,
+        id: m.studentId, name: m.name, title: item.title,
+        sup: supStr, sign: '',
       };
       row.getCell('id').alignment   = { vertical: 'middle', horizontal: 'center' };
       row.getCell('name').alignment = { vertical: 'middle', horizontal: 'left' };
@@ -368,16 +434,12 @@ export const generateDefenseSchedule = async (proposals, allSupervisors, courseF
     if (startRow <= endRow) {
       worksheet.mergeCells(`A${startRow}:A${endRow}`);
       worksheet.getCell(`A${startRow}`).alignment = { vertical: 'middle', horizontal: 'center' };
-
       worksheet.mergeCells(`B${startRow}:B${endRow}`);
       worksheet.getCell(`B${startRow}`).alignment = { vertical: 'middle', horizontal: 'center' };
-
       worksheet.mergeCells(`E${startRow}:E${endRow}`);
       worksheet.getCell(`E${startRow}`).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
-
       worksheet.mergeCells(`F${startRow}:F${endRow}`);
       worksheet.getCell(`F${startRow}`).alignment = { vertical: 'middle', horizontal: 'center' };
-
       worksheet.mergeCells(`G${startRow}:G${endRow}`);
     }
   });

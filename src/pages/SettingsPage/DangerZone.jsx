@@ -3,18 +3,7 @@ import toast from 'react-hot-toast';
 import { Icon, ICONS } from './Ui';
 import { api } from './api';
 
-/**
- * UX improvements:
- * - Added a top "warning bar" so the section purpose is immediately clear
- * - Two-step confirmation: first click arms the button (shows a red confirm state),
- *   second click executes. No modal toast needed — inline confirmation is faster
- *   and less disruptive while still preventing accidents.
- * - Course-wise buttons now show the full course name (not just code) on hover
- * - Destructive actions are visually separated from export/config actions via
- *   the parent layout (SettingsPage), but within this card they are further
- *   grouped: global resets vs. course resets.
- */
-
+// ── Two-step confirm button (red — destructive) ───────────────────────────────
 const ConfirmButton = ({ label, onConfirm, fullWidth = false }) => {
   const [armed, setArmed] = useState(false);
 
@@ -47,6 +36,40 @@ const ConfirmButton = ({ label, onConfirm, fullWidth = false }) => {
   );
 };
 
+// ── Two-step confirm button (amber — archive action) ─────────────────────────
+const ArchiveButton = ({ label, onConfirm, fullWidth = false }) => {
+  const [armed, setArmed] = useState(false);
+
+  useEffect(() => {
+    if (!armed) return;
+    const timer = setTimeout(() => setArmed(false), 3000);
+    return () => clearTimeout(timer);
+  }, [armed]);
+
+  const handleClick = () => {
+    if (!armed) { setArmed(true); return; }
+    setArmed(false);
+    onConfirm();
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      className={`
+        ${fullWidth ? 'w-full' : ''}
+        py-2.5 px-3 rounded-xl border text-xs font-bold transition-all duration-200 active:scale-95
+        ${armed
+          ? 'bg-amber-500 border-amber-500 text-white shadow-md shadow-amber-200 animate-pulse'
+          : 'bg-white border-amber-300 text-amber-600 hover:bg-amber-50 hover:border-amber-400'
+        }
+      `}
+    >
+      {armed ? `Tap again to confirm` : label}
+    </button>
+  );
+};
+
+// ── Main component ────────────────────────────────────────────────────────────
 const DangerZone = () => {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -63,9 +86,23 @@ const DangerZone = () => {
     if (courseId) url = `proposals/course/${courseId}`;
     try {
       await api.delete(url);
-      toast.success(courseId ? `All ${courseCode} submissions deleted.` : `${type} deleted successfully.`);
+      toast.success(courseId
+        ? `All ${courseCode} submissions deleted.`
+        : `${type} deleted successfully.`);
     } catch (error) {
       toast.error(error.response?.data?.message || `Failed to delete.`);
+    }
+  };
+
+  const handleArchiveAll = async () => {
+    try {
+      const { data } = await api.post('proposals/archive');
+      toast.success(
+        `Archived ${data.archived} submission${data.archived !== 1 ? 's' : ''} and removed them from active records.`,
+        { duration: 5000 }
+      );
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Archive failed.');
     }
   };
 
@@ -87,11 +124,33 @@ const DangerZone = () => {
               fullWidth
               onConfirm={() => handleDelete('Users')}
             />
+
+            {/* Archive button — amber, sits above delete for visual hierarchy */}
+            <ArchiveButton
+              label="📦  Archive all submissions"
+              fullWidth
+              onConfirm={handleArchiveAll}
+            />
+
             <ConfirmButton
               label="Delete all submissions"
               fullWidth
               onConfirm={() => handleDelete('Submissions')}
             />
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div className="border-t border-slate-100" />
+
+        {/* Archive info box */}
+        <div className="flex gap-2.5 p-3 bg-amber-50 border border-amber-100 rounded-xl">
+          <span className="text-amber-500 text-base shrink-0">📦</span>
+          <div>
+            <p className="text-[11px] font-bold text-amber-700 mb-0.5">About archiving</p>
+            <p className="text-[11px] text-amber-600 leading-relaxed">
+              Archive saves a complete snapshot of every submission (including marks, team members, and supervisor assignments) into a separate archive database, then removes them from the active submissions list. Data is preserved — not destroyed.
+            </p>
           </div>
         </div>
 
@@ -120,7 +179,7 @@ const DangerZone = () => {
 
         {/* Disclaimer */}
         <p className="text-[10px] text-slate-400 leading-relaxed border-t border-slate-100 pt-3">
-          All deletes are permanent and cannot be recovered. Tap once to arm, tap again within 3 seconds to execute.
+          Deletes are permanent and cannot be recovered. Archives are permanent snapshots. Tap once to arm, tap again within 3 seconds to execute.
         </p>
       </div>
     </div>
