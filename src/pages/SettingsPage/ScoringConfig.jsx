@@ -16,7 +16,7 @@ const CriteriaGroup = ({
   usedElsewhere,   // sum of max pts already used by the OTHER group
   totalMarks,      // the combined total cap
 }) => {
-  const groupSum  = criteria.reduce((s, c) => s + Number(c.max || 0), 0);
+  const groupSum = criteria.reduce((s, c) => s + Number(c.max || 0), 0);
   const remaining = totalMarks - usedElsewhere - groupSum; // pts left for THIS group to claim
 
   const handleNameChange = (i, val) => {
@@ -24,7 +24,9 @@ const CriteriaGroup = ({
   };
 
   const handleMaxChange = (i, val) => {
-    onChange(criteria.map((c, idx) => idx === i ? { ...c, max: val === '' ? '' : Number(val) } : c));
+    onChange(criteria.map((c, idx) => idx === i ? {
+      ...c, max: val === '' ? 0 : Number(val)
+    } : c));
   };
 
   const handleMaxBlur = (i) => {
@@ -140,11 +142,11 @@ const ScoringConfig = ({ evalConfig, setEvalConfig, onSave, saving, savedConfig 
     setIsDirty(JSON.stringify(evalConfig) !== JSON.stringify(savedConfig));
   }, [evalConfig, savedConfig]);
 
-  const totalMarks      = Number(evalConfig.totalMarks || 100);
-  const defCriteria     = evalConfig.defenseCriteria  || [];
-  const ownCriteria     = evalConfig.ownTeamCriteria  || [];
-  const combinedUsed    = sumAll(defCriteria, ownCriteria);
-  const combinedOk      = combinedUsed === totalMarks;
+  const totalMarks = Number(evalConfig.totalMarks || 100);
+  const defCriteria = evalConfig.defenseCriteria || [];
+  const ownCriteria = evalConfig.ownTeamCriteria || [];
+  const combinedUsed = sumAll(defCriteria, ownCriteria);
+  const combinedOk = combinedUsed === totalMarks;
 
   const defSum = defCriteria.reduce((s, c) => s + Number(c.max || 0), 0);
   const ownSum = ownCriteria.reduce((s, c) => s + Number(c.max || 0), 0);
@@ -219,13 +221,12 @@ const ScoringConfig = ({ evalConfig, setEvalConfig, onSave, saving, savedConfig 
           </div>
 
           {/* Status badge */}
-          <span className={`shrink-0 text-xs font-bold px-3 py-1.5 rounded-full ${
-            combinedOk
+          <span className={`shrink-0 text-xs font-bold px-3 py-1.5 rounded-full ${combinedOk
               ? 'bg-emerald-100 text-emerald-700'
               : combinedUsed > totalMarks
                 ? 'bg-red-100 text-red-600'
                 : 'bg-amber-100 text-amber-700'
-          }`}>
+            }`}>
             {combinedOk ? '✓ Complete' : combinedUsed > totalMarks ? `Over by ${combinedUsed - totalMarks}` : `${totalMarks - combinedUsed} pts left`}
           </span>
         </div>

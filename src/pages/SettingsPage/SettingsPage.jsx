@@ -1,4 +1,4 @@
-import React, { useState, useEffect,} from "react";
+import React, { useState, useEffect, } from "react";
 import toast, { Toaster } from "react-hot-toast";
 import { api } from "./api";
 import ToggleCard from "./ToggleCard";
@@ -33,9 +33,9 @@ import { SectionHeader } from "./Ui";
  */
 
 const DEFAULT_CONFIG = {
-  totalMarks:       100,
-  defenseCriteria:  [{ name: 'Criteria 1', max: 50 }, { name: 'Criteria 2', max: 50 }],
-  ownTeamCriteria:  [],
+  totalMarks: 100,
+  defenseCriteria: [{ name: 'Criteria 1', max: 50 }, { name: 'Criteria 2', max: 50 }],
+  ownTeamCriteria: [],
 };
 
 const DeadlinePickerStyles = () => (
@@ -90,11 +90,11 @@ const SettingsPage = () => {
         setIsRegistrationOpen(s.isStudentRegistrationOpen ?? false);
         setSubmissionDeadline(s.submissionDeadline ? new Date(s.submissionDeadline) : null);
         const config = {
-          totalMarks:      s.totalMarks       || DEFAULT_CONFIG.totalMarks,
-          defenseCriteria: (s.defenseCriteria  && s.defenseCriteria.length  > 0)
-            ? s.defenseCriteria  : DEFAULT_CONFIG.defenseCriteria,
-          ownTeamCriteria: (s.ownTeamCriteria  && s.ownTeamCriteria.length  > 0)
-            ? s.ownTeamCriteria  : DEFAULT_CONFIG.ownTeamCriteria,
+          totalMarks: s.totalMarks || DEFAULT_CONFIG.totalMarks,
+          defenseCriteria: (s.defenseCriteria && s.defenseCriteria.length > 0)
+            ? s.defenseCriteria : DEFAULT_CONFIG.defenseCriteria,
+          ownTeamCriteria: (s.ownTeamCriteria && s.ownTeamCriteria.length > 0)
+            ? s.ownTeamCriteria : DEFAULT_CONFIG.ownTeamCriteria,
         };
         setEvalConfig(config);
         setSavedConfig(config); // snapshot for dirty detection
@@ -113,15 +113,21 @@ const SettingsPage = () => {
       toast.success(newState ? openMsg : closeMsg);
     } catch (error) {
       setState(state);
-      toast.error("Network error: failed to sync with server",error);
+      toast.error("Network error: failed to sync with server", error);
     }
   };
 
   const handleSaveEvaluation = async () => {
     setSavingCriteria(true);
     try {
-      await api.post("settings/evaluation", evalConfig);
-      setSavedConfig({ ...evalConfig }); // update snapshot
+      // Strip _id from each criterion before sending — Mongoose adds it but backend rejects it
+      const payload = {
+        totalMarks: evalConfig.totalMarks,
+        defenseCriteria: (evalConfig.defenseCriteria || []).map(({ name, max }) => ({ name, max })),
+        ownTeamCriteria: (evalConfig.ownTeamCriteria || []).map(({ name, max }) => ({ name, max })),
+      };
+      await api.post("settings/evaluation", payload);
+      setSavedConfig({ ...evalConfig });
       toast.success("Scoring settings saved!");
     } catch {
       toast.error("Save failed");
@@ -151,8 +157,8 @@ const SettingsPage = () => {
   const deadlineStatus = isDeadlinePast
     ? { icon: <Lock className="w-3.5 h-3.5" />, color: "bg-rose-50 border-rose-100 text-rose-600", label: `Closed — students cannot submit · ${formatDeadline(submissionDeadline)}` }
     : isDeadlineSoon
-    ? { icon: <AlertTriangle className="w-3.5 h-3.5" />, color: "bg-amber-50 border-amber-100 text-amber-600", label: `Closing soon — less than 24h left · ${formatDeadline(submissionDeadline)}` }
-    : { icon: <Clock className="w-3.5 h-3.5" />, color: "bg-indigo-50 border-indigo-100 text-indigo-600", label: `Open until · ${formatDeadline(submissionDeadline)}` };
+      ? { icon: <AlertTriangle className="w-3.5 h-3.5" />, color: "bg-amber-50 border-amber-100 text-amber-600", label: `Closing soon — less than 24h left · ${formatDeadline(submissionDeadline)}` }
+      : { icon: <Clock className="w-3.5 h-3.5" />, color: "bg-indigo-50 border-indigo-100 text-indigo-600", label: `Open until · ${formatDeadline(submissionDeadline)}` };
 
   const deadlineDotColor = isDeadlinePast ? "bg-rose-400" : isDeadlineSoon ? "bg-amber-400 animate-pulse" : submissionDeadline ? "bg-indigo-400" : "bg-slate-200";
 

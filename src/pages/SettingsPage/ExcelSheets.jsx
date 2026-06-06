@@ -72,7 +72,7 @@ const computeWeightedDefenseAvg = (presentMarks) => {
   let sumTotalW = 0;
   withTotals.forEach((mk) => {
     const w = weightMap.get(mk.originalIdx);
-    sumW      += w;
+    sumW += w;
     sumTotalW += mk.total * w;
   });
 
@@ -97,7 +97,9 @@ const computeRegularDefenseAvg = (presentMarks) => {
 // =============================================================================
 export const generateMainReport = async (proposals, evalConfig, allSupervisors, courseFilter = null) => {
   let data = proposals.filter(p => {
-    const memberCount = (p.teamMembers || []).length;
+    const memberCount = 1 + (p.teamMembers || []).filter(
+      m => m.studentId !== p.student?.studentId
+    ).length;
     const matchesCourse = courseFilter ? p.course?._id === courseFilter._id : true;
     const isOfficialTeam = memberCount >= 3 && memberCount <= 4;
     return matchesCourse && isOfficialTeam;
@@ -113,42 +115,42 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
   const ownCriteria = Array.isArray(evalConfig.ownTeamCriteria) && evalConfig.ownTeamCriteria.length > 0
     ? evalConfig.ownTeamCriteria
     : [
-        { name: evalConfig.ownTeamCriteria1Name || 'Sup C1' },
-        { name: evalConfig.ownTeamCriteria2Name || 'Sup C2' },
-      ];
+      { name: evalConfig.ownTeamCriteria1Name || 'Sup C1' },
+      { name: evalConfig.ownTeamCriteria2Name || 'Sup C2' },
+    ];
 
   const defCriteria = Array.isArray(evalConfig.defenseCriteria) && evalConfig.defenseCriteria.length > 0
     ? evalConfig.defenseCriteria
     : [
-        { name: evalConfig.criteria1Name || 'Def C1' },
-        { name: evalConfig.criteria2Name || 'Def C2' },
-      ];
+      { name: evalConfig.criteria1Name || 'Def C1' },
+      { name: evalConfig.criteria2Name || 'Def C2' },
+    ];
 
-  const workbook  = new ExcelJS.Workbook();
+  const workbook = new ExcelJS.Workbook();
   const sheetName = courseFilter ? courseFilter.courseCode : 'Master Sheet';
   const worksheet = workbook.addWorksheet(sheetName.substring(0, 30));
 
   // ── Build dynamic columns ────────────────────────────────────────────────
   // Fixed left columns
   const fixedLeft = [
-    { header: 'ID',                    key: 'sn',    width: 6  },
-    { header: 'Course',                key: 'c',     width: 12 },
-    { header: 'Title',                 key: 'title', width: 35 },
-    { header: 'Team Members',          key: 'count', width: 15 },
-    { header: 'Name',                  key: 'name',  width: 25 },
-    { header: 'Student ID',            key: 'sid',   width: 18 },
-    { header: 'Supervisor',            key: 'sup',   width: 15 },
-    { header: 'CGPA',                  key: 'cgpa',  width: 10 },
-    { header: 'Email',                 key: 'email', width: 30 },
-    { header: 'Phone',                 key: 'phone', width: 15 },
-    { header: 'Proposal Drive Link',   key: 'link',  width: 40 },
+    { header: 'ID', key: 'sn', width: 6 },
+    { header: 'Course', key: 'c', width: 12 },
+    { header: 'Title', key: 'title', width: 35 },
+    { header: 'Team Members', key: 'count', width: 15 },
+    { header: 'Name', key: 'name', width: 25 },
+    { header: 'Student ID', key: 'sid', width: 18 },
+    { header: 'Supervisor', key: 'sup', width: 15 },
+    { header: 'CGPA', key: 'cgpa', width: 10 },
+    { header: 'Email', key: 'email', width: 30 },
+    { header: 'Phone', key: 'phone', width: 15 },
+    { header: 'Proposal Drive Link', key: 'link', width: 40 },
   ];
 
   // Supervisor criteria columns (one per criterion)
   const ownCols = ownCriteria.map((c, i) => ({
     header: `Sup: ${c.name}`,
-    key:    `o${i}`,
-    width:  13,
+    key: `o${i}`,
+    width: 13,
   }));
   const ownTotalCol = { header: 'Sup Total', key: 'ot', width: 10 };
 
@@ -158,29 +160,29 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
   // Defense W.Avg columns (one per criterion + total)
   const defWAvgCols = defCriteria.map((c, i) => ({
     header: `Def: ${c.name} (W.Avg)`,
-    key:    `dw${i}`,
-    width:  15,
+    key: `dw${i}`,
+    width: 15,
   }));
   const defWAvgTotalCol = { header: 'Def Total (W.Avg)', key: 'dwt', width: 15 };
 
   // Defense Regular Avg columns (one per criterion + total)
   const defAvgCols = defCriteria.map((c, i) => ({
     header: `Def: ${c.name} (Avg)`,
-    key:    `da${i}`,
-    width:  15,
+    key: `da${i}`,
+    width: 15,
   }));
   const defAvgTotalCol = { header: 'Def Total (Avg)', key: 'dat', width: 15 };
 
   // Grand total columns
-  const gtWAvgCol = { header: 'Grand Total (W.Avg)', key: 'gt',  width: 18 };
-  const gtAvgCol  = { header: 'Grand Total (Avg)',   key: 'gta', width: 18 };
+  const gtWAvgCol = { header: 'Grand Total (W.Avg)', key: 'gt', width: 18 };
+  const gtAvgCol = { header: 'Grand Total (Avg)', key: 'gta', width: 18 };
 
   worksheet.columns = [
     ...fixedLeft,
     ...ownCols, ownTotalCol,
     indivCol,
     ...defWAvgCols, defWAvgTotalCol,
-    ...defAvgCols,  defAvgTotalCol,
+    ...defAvgCols, defAvgTotalCol,
     gtWAvgCol, gtAvgCol,
   ];
 
@@ -192,18 +194,32 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
   let currentRow = 2;
 
   data.forEach((item) => {
-    const team     = item.teamMembers || [];
+    const leaderAsRow = item.student
+      ? [{
+        name: item.student.name,
+        studentId: item.student.studentId,
+        cgpa: item.student.cgpa,
+        email: item.student.email,
+        mobile: item.student.mobile,
+        _isLeader: true,
+      }]
+      : [];
+
+    const team = [...leaderAsRow, ...(item.teamMembers || []).filter(
+      m => m.studentId !== item.student?.studentId  // deduplicate if leader appears in both
+    )];
+
     const startRow = currentRow;
-    const supStr   = getSupLabel(item.assignedSupervisor, allSupervisors);
+    const supStr = getSupLabel(item.assignedSupervisor, allSupervisors);
     const allMarks = item.marks || [];
 
     team.forEach((m) => {
-      const ownMark  = allMarks.find(mk => mk.studentId === m.studentId && mk.type === 'own');
+      const ownMark = allMarks.find(mk => mk.studentId === m.studentId && mk.type === 'own');
       const defMarks = allMarks.filter(mk => mk.studentId === m.studentId && mk.type === 'defense');
 
       // ── Supervisor (own-team) marks ──────────────────────────────────────
-      const ownVals   = ownCriteria.map((_, i) => ownMark && !ownMark.isAbsent ? getCriterionValue(ownMark, i) : null);
-      const ownTotal  = ownMark
+      const ownVals = ownCriteria.map((_, i) => ownMark && !ownMark.isAbsent ? getCriterionValue(ownMark, i) : null);
+      const ownTotal = ownMark
         ? (ownMark.isAbsent ? 0 : sumCriteria(ownMark))
         : null;
 
@@ -218,12 +234,12 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
       // ── Defense board marks ──────────────────────────────────────────────
       let indiv = '-';
       const defWAvgCellVals = {};
-      const defAvgCellVals  = {};
+      const defAvgCellVals = {};
       let dwtCell = '-', datCell = '-';
 
       defCriteria.forEach((_, i) => {
         defWAvgCellVals[`dw${i}`] = '-';
-        defAvgCellVals[`da${i}`]  = '-';
+        defAvgCellVals[`da${i}`] = '-';
       });
 
       if (defMarks.length > 0) {
@@ -249,7 +265,7 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
             let sumW = 0, sumVW = 0;
             withTotals.forEach(mk => {
               const w = weightMap.get(mk.originalIdx);
-              sumW  += w;
+              sumW += w;
               sumVW += mk.val * w;
             });
             defWAvgCellVals[`dw${i}`] = (sumVW / sumW).toFixed(1);
@@ -260,7 +276,7 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
           });
 
           const { weightedTotal } = computeWeightedDefenseAvg(presentDefMarks);
-          const { avgTotal }      = computeRegularDefenseAvg(presentDefMarks);
+          const { avgTotal } = computeRegularDefenseAvg(presentDefMarks);
 
           dwtCell = weightedTotal.toFixed(1);
           datCell = avgTotal.toFixed(1);
@@ -268,7 +284,7 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
           // All absent
           defCriteria.forEach((_, i) => {
             defWAvgCellVals[`dw${i}`] = 'Abs';
-            defAvgCellVals[`da${i}`]  = 'Abs';
+            defAvgCellVals[`da${i}`] = 'Abs';
           });
           dwtCell = '0';
           datCell = '0';
@@ -276,27 +292,27 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
       }
 
       // ── Grand Totals ─────────────────────────────────────────────────────
-      const numOwnTotal  = (ownMark && !ownMark.isAbsent) ? ownTotal : 0;
-      const numDefWAvg   = dwtCell !== '-' ? parseFloat(dwtCell)  : 0;
-      const numDefAvg    = datCell !== '-' ? parseFloat(datCell)   : 0;
+      const numOwnTotal = (ownMark && !ownMark.isAbsent) ? ownTotal : 0;
+      const numDefWAvg = dwtCell !== '-' ? parseFloat(dwtCell) : 0;
+      const numDefAvg = datCell !== '-' ? parseFloat(datCell) : 0;
 
       const gtWAvg = (numOwnTotal + numDefWAvg).toFixed(1);
-      const gtAvg  = (numOwnTotal + numDefAvg).toFixed(1);
+      const gtAvg = (numOwnTotal + numDefAvg).toFixed(1);
 
       // ── Write row ────────────────────────────────────────────────────────
       const row = worksheet.getRow(currentRow);
       row.values = {
-        sn:    item.serialNumber ?? '—',
-        c:     item.course?.courseCode || 'N/A',
+        sn: item.serialNumber ?? '—',
+        c: item.course?.courseCode || 'N/A',
         title: item.title,
         count: team.length,
-        name:  m.name,
-        sid:   m.studentId,
-        sup:   supStr,
-        cgpa:  m.cgpa  || '-',
+        name: m.name,
+        sid: m.studentId,
+        sup: supStr,
+        cgpa: m.cgpa || '-',
         email: m.email || '-',
         phone: m.mobile || '-',
-        link:  item.description || 'N/A',
+        link: item.description || 'N/A',
         ...ownCellVals,
         ot: otCell,
         indiv,
@@ -304,7 +320,7 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
         dwt: dwtCell,
         ...defAvgCellVals,
         dat: datCell,
-        gt:  gtWAvg,
+        gt: gtWAvg,
         gta: gtAvg,
       };
 
@@ -320,18 +336,18 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
       }
 
       // Highlight Grand Total (W.Avg) column
-      row.getCell('gt').fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDDEBF7' } };
-      row.getCell('gt').font  = { bold: true };
+      row.getCell('gt').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDDEBF7' } };
+      row.getCell('gt').font = { bold: true };
       // Highlight Grand Total (Avg) column
       row.getCell('gta').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2EFDA' } };
       row.getCell('gta').font = { bold: true };
 
       row.eachCell({ includeEmpty: true }, (cell) => {
         cell.border = {
-          top:    { style: 'thin' },
-          left:   { style: 'thin' },
+          top: { style: 'thin' },
+          left: { style: 'thin' },
           bottom: { style: 'thin' },
-          right:  { style: 'thin' },
+          right: { style: 'thin' },
         };
         cell.alignment = { vertical: 'middle', horizontal: 'center' };
       });
@@ -369,29 +385,29 @@ export const generateDefenseSchedule = async (proposals, allSupervisors, courseF
 
   if (!data.length) throw new Error('NO_DATA');
 
-  const workbook  = new ExcelJS.Workbook();
+  const workbook = new ExcelJS.Workbook();
   const sheetName = courseFilter ? `${courseFilter.courseCode} Schedule` : 'Schedule';
   const worksheet = workbook.addWorksheet(sheetName.substring(0, 30));
 
   worksheet.columns = [
-    { header: 'SL',            key: 'sn',    width: 5  },
-    { header: 'Schedule',      key: 'time',  width: 25 },
-    { header: 'Student ID',    key: 'id',    width: 18 },
-    { header: 'Name',          key: 'name',  width: 25 },
+    { header: 'SL', key: 'sn', width: 5 },
+    { header: 'Schedule', key: 'time', width: 25 },
+    { header: 'Student ID', key: 'id', width: 18 },
+    { header: 'Name', key: 'name', width: 25 },
     { header: 'Project Title', key: 'title', width: 35 },
-    { header: 'Supervisor',    key: 'sup',   width: 15 },
-    { header: 'Signature',     key: 'sign',  width: 20 },
+    { header: 'Supervisor', key: 'sup', width: 15 },
+    { header: 'Signature', key: 'sign', width: 20 },
   ];
 
   const headerRow = worksheet.getRow(1);
-  headerRow.font      = { name: 'Calibri', size: 11, bold: true };
+  headerRow.font = { name: 'Calibri', size: 11, bold: true };
   headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
   headerRow.eachCell((cell) => {
-    cell.fill   = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF99F6C9' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF99F6C9' } };
     cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
   });
 
-  let currentRow  = 2;
+  let currentRow = 2;
   let lastDateStr = '';
 
   data.forEach((item) => {
@@ -403,17 +419,17 @@ export const generateDefenseSchedule = async (proposals, allSupervisors, courseF
       const dateRow = worksheet.getRow(currentRow);
       dateRow.values = [formatDateHeader(item.defenseDate)];
       worksheet.mergeCells(`A${currentRow}:G${currentRow}`);
-      dateRow.getCell(1).fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC7CE' } };
-      dateRow.getCell(1).font      = { name: 'Calibri', size: 12, bold: true };
+      dateRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC7CE' } };
+      dateRow.getCell(1).font = { name: 'Calibri', size: 12, bold: true };
       dateRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
-      dateRow.getCell(1).border    = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+      dateRow.getCell(1).border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
       currentRow++;
       lastDateStr = thisDateStr;
     }
 
     const startRow = currentRow;
-    const timeStr  = formatTimeRange(item.defenseDate, item.defenseEndDate);
-    const supStr   = getSupLabel(item.assignedSupervisor, allSupervisors);
+    const timeStr = formatTimeRange(item.defenseDate, item.defenseEndDate);
+    const supStr = getSupLabel(item.assignedSupervisor, allSupervisors);
 
     team.forEach((m) => {
       const row = worksheet.getRow(currentRow);
@@ -422,7 +438,7 @@ export const generateDefenseSchedule = async (proposals, allSupervisors, courseF
         id: m.studentId, name: m.name, title: item.title,
         sup: supStr, sign: '',
       };
-      row.getCell('id').alignment   = { vertical: 'middle', horizontal: 'center' };
+      row.getCell('id').alignment = { vertical: 'middle', horizontal: 'center' };
       row.getCell('name').alignment = { vertical: 'middle', horizontal: 'left' };
       row.eachCell({ includeEmpty: true }, (cell) => {
         cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
@@ -457,17 +473,17 @@ export const generateRequestsReport = async (proposals, courseFilter = null) => 
   if (courseFilter) data = data.filter(p => p.course?._id === courseFilter._id);
   if (!data.length) throw new Error('NO_DATA');
 
-  const workbook  = new ExcelJS.Workbook();
+  const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('Team Requests');
 
   worksheet.columns = [
-    { header: 'Course',        key: 'course', width: 12 },
-    { header: 'Project Title', key: 'title',  width: 40 },
-    { header: 'Role',          key: 'role',   width: 12 },
-    { header: 'Student Name',  key: 'name',   width: 25 },
-    { header: 'Student ID',    key: 'sid',    width: 18 },
-    { header: 'Email',         key: 'email',  width: 30 },
-    { header: 'Phone',         key: 'phone',  width: 15 },
+    { header: 'Course', key: 'course', width: 12 },
+    { header: 'Project Title', key: 'title', width: 40 },
+    { header: 'Role', key: 'role', width: 12 },
+    { header: 'Student Name', key: 'name', width: 25 },
+    { header: 'Student ID', key: 'sid', width: 18 },
+    { header: 'Email', key: 'email', width: 30 },
+    { header: 'Phone', key: 'phone', width: 15 },
   ];
 
   const headerRow = worksheet.getRow(1);
@@ -477,18 +493,18 @@ export const generateRequestsReport = async (proposals, courseFilter = null) => 
   let currentRow = 2;
 
   data.forEach((item) => {
-    const members  = item.teamMembers || [];
+    const members = item.teamMembers || [];
     const startRow = currentRow;
 
     members.forEach(m => {
       worksheet.addRow({
         course: item.course?.courseCode || 'N/A',
-        title:  item.title,
-        role:   'MEMBER',
-        name:   m.name,
-        sid:    m.studentId,
-        email:  m.email  || 'N/A',
-        phone:  m.mobile || 'N/A',
+        title: item.title,
+        role: 'MEMBER',
+        name: m.name,
+        sid: m.studentId,
+        email: m.email || 'N/A',
+        phone: m.mobile || 'N/A',
       });
       currentRow++;
     });
