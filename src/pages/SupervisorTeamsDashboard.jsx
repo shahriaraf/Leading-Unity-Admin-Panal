@@ -19,15 +19,32 @@ const parseCgpa = (val) => {
   return isNaN(n) ? null : n;
 };
 
+// 🟢 FIX: Leader's CGPA is stored inside teamMembers under their own studentId.
+// proposal.student is a populated User doc that has no cgpa field.
+// We look it up from teamMembers as the source of truth.
+const getLeaderCgpa = (proposal) => {
+  const leaderStudentId = proposal.student?.studentId;
+  if (!leaderStudentId) return null;
+  const leaderEntry = (proposal.teamMembers ?? []).find(
+    (m) => String(m.studentId) === String(leaderStudentId)
+  );
+  return parseCgpa(leaderEntry?.cgpa);
+};
+
 const computeAvgCgpa = (proposal) => {
   const values = [];
-  const leaderCgpa = parseCgpa(proposal.student?.cgpa);
+
+  // Leader CGPA from teamMembers entry
+  const leaderCgpa = getLeaderCgpa(proposal);
   if (leaderCgpa !== null) values.push(leaderCgpa);
+
+  // Other members (skip the leader entry to avoid double-counting)
   for (const m of proposal.teamMembers ?? []) {
-    if (m.studentId === proposal.student?.studentId) continue;
+    if (String(m.studentId) === String(proposal.student?.studentId)) continue;
     const c = parseCgpa(m.cgpa);
     if (c !== null) values.push(c);
   }
+
   if (values.length === 0) return null;
   return values.reduce((a, b) => a + b, 0) / values.length;
 };
@@ -69,8 +86,13 @@ const CgpaBadge = ({ avg }) => {
 // ── Expanded Members Sub-table ─────────────────────────────────────────────────
 const MembersSubTable = ({ proposal }) => {
   const leader = proposal.student;
+
+  // 🟢 FIX: Get leader's CGPA from the teamMembers array where it was submitted
+  const leaderCgpaValue = getLeaderCgpa(proposal);
+  const leaderCgpaDisplay = leaderCgpaValue !== null ? String(leaderCgpaValue) : "—";
+
   const others = (proposal.teamMembers ?? []).filter(
-    (m) => m.studentId !== leader?.studentId
+    (m) => String(m.studentId) !== String(leader?.studentId)
   );
 
   return (
@@ -96,7 +118,8 @@ const MembersSubTable = ({ proposal }) => {
                   Leader
                 </span>
               </td>
-              <td className="py-1.5 text-right pr-2 font-mono text-gray-700">{leader.cgpa ?? "—"}</td>
+              {/* 🟢 FIX: Use leaderCgpaDisplay instead of leader.cgpa */}
+              <td className="py-1.5 text-right pr-2 font-mono text-gray-700">{leaderCgpaDisplay}</td>
             </tr>
           )}
           {others.map((m, idx) => (
@@ -125,7 +148,7 @@ const TeamRow = ({ proposal, globalIndex }) => {
   const memberCount =
     1 +
     (proposal.teamMembers ?? []).filter(
-      (m) => m.studentId !== proposal.student?.studentId
+      (m) => String(m.studentId) !== String(proposal.student?.studentId)
     ).length;
 
   return (
@@ -216,7 +239,7 @@ const SupervisorGroupRow = ({ supervisor, teams, startIndex }) => {
       acc +
       1 +
       (p.teamMembers ?? []).filter(
-        (m) => m.studentId !== p.student?.studentId
+        (m) => String(m.studentId) !== String(p.student?.studentId)
       ).length,
     0
   );
