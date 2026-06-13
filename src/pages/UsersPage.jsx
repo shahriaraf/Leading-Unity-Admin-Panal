@@ -26,6 +26,7 @@ const UsersPage = () => {
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [loading, setLoading]           = useState(true);
   const [isModalOpen, setIsModalOpen]   = useState(false);
+  const [selectedSupervisor, setSelectedSupervisor] = useState(null);
   const [searchTerm, setSearchTerm]     = useState('');
   const [roleFilter, setRoleFilter]     = useState('all');
 
@@ -143,13 +144,26 @@ const UsersPage = () => {
 
       {/* Actions */}
       <td className="px-6 py-4 text-right whitespace-nowrap">
-        <button
-          onClick={() => deleteHandler(user._id)}
-          className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
-          title="Delete User"
-        >
-          <TrashIcon />
-        </button>
+        <div className="flex items-center justify-end gap-2">
+          {user.role === 'supervisor' && (
+            <button
+              onClick={() => { setSelectedSupervisor(user); setIsModalOpen(true); }}
+              className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              title="Edit Supervisor"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+            </button>
+          )}
+          <button
+            onClick={() => deleteHandler(user._id)}
+            className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
+            title="Delete User"
+          >
+            <TrashIcon />
+          </button>
+        </div>
       </td>
     </tr>
   );
@@ -198,7 +212,7 @@ const UsersPage = () => {
 
           {/* Add Supervisor */}
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => { setSelectedSupervisor(null); setIsModalOpen(true); }}
             className="flex items-center justify-center px-4 py-2.5 text-sm font-semibold text-white transition-all bg-indigo-600 rounded-lg shadow-sm hover:bg-indigo-700 hover:shadow-md active:scale-95 whitespace-nowrap"
           >
             <PlusIcon /> Add Supervisor
@@ -234,8 +248,9 @@ const UsersPage = () => {
 
       <SupervisorModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSuccess={() => { fetchUsers(); setIsModalOpen(false); }}
+        onClose={() => { setIsModalOpen(false); setSelectedSupervisor(null); }}
+        onSuccess={() => { fetchUsers(); setIsModalOpen(false); setSelectedSupervisor(null); }}
+        supervisorToEdit={selectedSupervisor}
       />
     </div>
   );
