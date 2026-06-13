@@ -149,7 +149,11 @@ const DangerZone = () => {
           <div>
             <p className="text-[11px] font-bold text-amber-700 mb-0.5">About archiving</p>
             <p className="text-[11px] text-amber-600 leading-relaxed">
-              Archive saves a complete snapshot of every submission (including marks, team members, and supervisor assignments) into a separate archive database, then removes them from the active submissions list. Data is preserved — not destroyed.
+              Archive saves a complete snapshot of every submission into a separate archive
+              database, then removes them from the active list. <strong>Important:</strong> if
+              you use the Carry Forward feature, always carry forward first, then archive.
+              Freshly carried-forward proposals with no marks yet are automatically protected
+              from archiving.
             </p>
           </div>
         </div>

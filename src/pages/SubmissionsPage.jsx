@@ -1085,17 +1085,29 @@ const SubmissionsPage = () => {
         {/* Team members */}
         <td className="px-6 py-4 align-top">
           {/* Leader row */}
-          {proposal.student && (
-            <div className="flex items-center gap-2 text-xs text-gray-600 mb-1">
-              <svg className="w-3.5 h-3.5 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-              <span className="font-medium text-indigo-700">
-                {proposal.student.name}{" "}
-                <span className="text-gray-400 font-normal">({proposal.student.studentId})</span>
-              </span>
-            </div>
-          )}
+          {proposal.student && (() => {
+            // Leader CGPA lives in teamMembers under their own studentId
+            const leaderEntry = (proposal.teamMembers ?? []).find(
+              m => String(m.studentId) === String(proposal.student.studentId)
+            );
+            const leaderCgpa = leaderEntry?.cgpa;
+            return (
+              <div className="flex items-center gap-2 text-xs text-gray-600 mb-1">
+                <svg className="w-3.5 h-3.5 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <span className="font-medium text-indigo-700">
+                  {proposal.student.name}{" "}
+                  <span className="text-gray-400 font-normal">({proposal.student.studentId})</span>
+                  {leaderCgpa && (
+                    <span className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-600">
+                      {leaderCgpa}
+                    </span>
+                  )}
+                </span>
+              </div>
+            );
+          })()}
           {(() => {
             const leaderStudentId = proposal.student?.studentId;
             const filteredMembers = (proposal.teamMembers ?? []).filter(
@@ -1106,7 +1118,14 @@ const SubmissionsPage = () => {
                 {filteredMembers.map((member, idx) => (
                   <div key={idx} className="flex items-center gap-2 text-xs text-gray-600">
                     <TeamIcon />
-                    <span>{member.name} <span className="text-gray-400">({member.studentId})</span></span>
+                    <span>
+                      {member.name} <span className="text-gray-400">({member.studentId})</span>
+                      {member.cgpa && (
+                        <span className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-500">
+                          {member.cgpa}
+                        </span>
+                      )}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -1397,9 +1416,19 @@ const SubmissionsPage = () => {
 
       {/* Table */}
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-        <div className="overflow-x-auto min-h-[400px]">
+        <style>{`
+          .submissions-scroll::-webkit-scrollbar { height: 8px; }
+          .submissions-scroll::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+          .submissions-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+          .submissions-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        `}</style>
+        <div
+          className="submissions-scroll min-h-[400px]"
+          style={{ overflowX: "auto", position: "relative" }}
+        >
+          <div style={{ position: "sticky", top: 0, zIndex: 10, background: "white" }} />
           <table className="min-w-full divide-y divide-gray-100">
-            <thead className="bg-gray-50/50">
+            <thead className="bg-gray-50/50" style={{ position: "sticky", top: 0, zIndex: 10 }}>
               <tr>
                 {[
                   { label: mergeMode ? "✓" : bulkMode ? "all" : "SN", align: "text-center", isBulkAll: bulkMode },
