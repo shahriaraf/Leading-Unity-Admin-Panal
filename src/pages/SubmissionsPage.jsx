@@ -1420,7 +1420,7 @@ const SubmissionsPage = () => {
           .submissions-scroll::-webkit-scrollbar { height: 8px; }
           .submissions-scroll::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
           .submissions-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-          .submissions-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+          .submissions-scroll::-webkit-scrollbar-thumb:hover { background: #e92208; }
         `}</style>
         <div
           className="submissions-scroll min-h-[400px]"
