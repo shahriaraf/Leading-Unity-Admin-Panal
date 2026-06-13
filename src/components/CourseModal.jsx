@@ -9,23 +9,29 @@ const getAuthHeader = () => {
   return { headers: { Authorization: `Bearer ${userInfo?.token}` } };
 };
 
-const CourseModal = ({ isOpen, onClose, onSuccess, courseToEdit }) => {
-  const [courseCode, setCourseCode]   = useState('');
-  const [courseTitle, setCourseTitle] = useState('');
-  const [isLoading, setIsLoading]     = useState(false);
+const CourseModal = ({ isOpen, onClose, onSuccess, courseToEdit, allCourses = [] }) => {
+  const [courseCode,     setCourseCode]     = useState('');
+  const [courseTitle,    setCourseTitle]    = useState('');
+  const [linkedCourseId, setLinkedCourseId] = useState('');
+  const [isLoading,      setIsLoading]      = useState(false);
 
-  // Populate fields in edit mode, clear them in add mode
   useEffect(() => {
     if (!isOpen) return;
     setCourseCode(courseToEdit?.courseCode   ?? '');
     setCourseTitle(courseToEdit?.courseTitle ?? '');
+    // linkedCourseId may be a populated object or a plain id string
+    const linked = courseToEdit?.linkedCourseId;
+    setLinkedCourseId(linked ? (linked._id ?? linked) : '');
   }, [isOpen, courseToEdit]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    const payload = { courseCode, courseTitle };
-
+    const payload = {
+      courseCode,
+      courseTitle,
+      linkedCourseId: linkedCourseId || null,
+    };
     try {
       if (courseToEdit) {
         await axios.put(`${API_BASE}/courses/${courseToEdit._id}`, payload, getAuthHeader());
@@ -34,7 +40,7 @@ const CourseModal = ({ isOpen, onClose, onSuccess, courseToEdit }) => {
         await axios.post(`${API_BASE}/courses`, payload, getAuthHeader());
         toast.success('Course added successfully!');
       }
-      onSuccess(); // Refresh parent list
+      onSuccess();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Something went wrong');
     } finally {
@@ -43,8 +49,10 @@ const CourseModal = ({ isOpen, onClose, onSuccess, courseToEdit }) => {
   };
 
   if (!isOpen) return null;
-
   const isEdit = !!courseToEdit;
+
+  // Don't show the current course as a link option (can't link to itself)
+  const linkOptions = allCourses.filter((c) => c._id !== courseToEdit?._id);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -69,19 +77,53 @@ const CourseModal = ({ isOpen, onClose, onSuccess, courseToEdit }) => {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
-          {[
-            { label: 'Course Code',  value: courseCode,  setter: setCourseCode,  placeholder: 'e.g. CSE-3200',                  extra: 'uppercase placeholder:normal-case' },
-            { label: 'Course Title', value: courseTitle, setter: setCourseTitle, placeholder: 'e.g. System Analysis and Design', extra: '' },
-          ].map(({ label, value, setter, placeholder, extra }) => (
-            <div key={label}>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">{label}</label>
-              <input
-                type="text" value={value} placeholder={placeholder} required
-                onChange={(e) => setter(e.target.value)}
-                className={`w-full px-4 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:bg-white transition-all placeholder-gray-400 text-gray-800 ${extra}`}
-              />
-            </div>
-          ))}
+          {/* Course Code */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Course Code</label>
+            <input
+              type="text" value={courseCode} placeholder="e.g. CSE-4200" required
+              onChange={(e) => setCourseCode(e.target.value)}
+              className="w-full px-4 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:bg-white transition-all placeholder-gray-400 text-gray-800 uppercase placeholder:normal-case"
+            />
+          </div>
+
+          {/* Course Title */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Course Title</label>
+            <input
+              type="text" value={courseTitle} placeholder="e.g. Thesis Part I" required
+              onChange={(e) => setCourseTitle(e.target.value)}
+              className="w-full px-4 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:bg-white transition-all placeholder-gray-400 text-gray-800"
+            />
+          </div>
+
+          {/* Linked Course (optional) */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+              Carry Forward To
+              <span className="ml-1.5 text-xs font-normal text-gray-400">(optional)</span>
+            </label>
+            <select
+              value={linkedCourseId}
+              onChange={(e) => setLinkedCourseId(e.target.value)}
+              className="w-full px-4 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:bg-white transition-all text-gray-800"
+            >
+              <option value="">— None —</option>
+              {linkOptions.map((c) => (
+                <option key={c._id} value={c._id}>
+                  {c.courseCode} — {c.courseTitle}
+                </option>
+              ))}
+            </select>
+            {linkedCourseId && (
+              <p className="mt-1.5 text-xs text-indigo-600 flex items-center gap-1">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Proposals from this course can be carried forward to the selected course.
+              </p>
+            )}
+          </div>
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-2">
