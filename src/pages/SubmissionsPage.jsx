@@ -1078,7 +1078,7 @@ const SubmissionsPage = () => {
             : mergeMode || bulkMode
             ? "hover:bg-gray-50/80 cursor-pointer"
             : isComplete
-            ? "bg-emerald-70/80 border-l-4 border-emerald-400 hover:bg-emerald-50"
+            ? "bg-emerald-30/40 border-l-4 border-emerald-400 hover:bg-emerald-50"
             : "hover:bg-gray-50/80"
         }`}
         onClick={(mergeMode || bulkMode) ? handleRowClick : undefined}
