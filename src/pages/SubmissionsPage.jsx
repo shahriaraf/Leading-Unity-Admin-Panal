@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
 import DatePicker from "react-datepicker";
@@ -968,6 +968,49 @@ const SubmissionsPage = () => {
     }
   };
 
+  // ── Sticky horizontal scrollbar refs ────────────────────────────────────
+  const tableScrollRef = useRef(null);
+  const mirrorScrollRef = useRef(null);
+  const mirrorInnerRef = useRef(null);
+
+  useEffect(() => {
+    const table = tableScrollRef.current;
+    const mirror = mirrorScrollRef.current;
+    const inner = mirrorInnerRef.current;
+    if (!table || !mirror || !inner) return;
+
+    const syncInnerWidth = () => {
+      const tableEl = table.querySelector("table");
+      if (tableEl) inner.style.width = tableEl.offsetWidth + "px";
+    };
+    syncInnerWidth();
+
+    let isSyncing = false;
+    const onTableScroll = () => {
+      if (isSyncing) return;
+      isSyncing = true;
+      mirror.scrollLeft = table.scrollLeft;
+      isSyncing = false;
+    };
+    const onMirrorScroll = () => {
+      if (isSyncing) return;
+      isSyncing = true;
+      table.scrollLeft = mirror.scrollLeft;
+      isSyncing = false;
+    };
+
+    table.addEventListener("scroll", onTableScroll);
+    mirror.addEventListener("scroll", onMirrorScroll);
+    const ro = new ResizeObserver(syncInnerWidth);
+    ro.observe(table);
+
+    return () => {
+      table.removeEventListener("scroll", onTableScroll);
+      mirror.removeEventListener("scroll", onMirrorScroll);
+      ro.disconnect();
+    };
+  }, []);
+
   // ── Row components ──────────────────────────────────────────────────────
   const SkeletonRows = () =>
     [...Array(4)].map((_, i) => (
@@ -996,6 +1039,14 @@ const SubmissionsPage = () => {
   const ProposalRow = ({ proposal }) => {
     const isSelected = selectedForMerge.some((p) => p._id === proposal._id);
     const isBulkSelected = selectedForBulk.some((p) => p._id === proposal._id);
+
+    // Row is "complete" when approved + supervisor assigned + defense scheduled
+    const isComplete =
+      !mergeMode &&
+      !bulkMode &&
+      proposal.status === "approved" &&
+      !!proposal.assignedSupervisor &&
+      !!proposal.defenseDate;
 
     // Course lock for merge mode
     const lockedCourseCode = selectedForMerge[0]?.course?.courseCode ?? null;
@@ -1026,6 +1077,8 @@ const SubmissionsPage = () => {
             ? "bg-violet-50 border-l-4 border-violet-500"
             : mergeMode || bulkMode
             ? "hover:bg-gray-50/80 cursor-pointer"
+            : isComplete
+            ? "bg-emerald-50/60 border-l-4 border-emerald-400 hover:bg-emerald-50"
             : "hover:bg-gray-50/80"
         }`}
         onClick={(mergeMode || bulkMode) ? handleRowClick : undefined}
@@ -1417,14 +1470,17 @@ const SubmissionsPage = () => {
       {/* Table */}
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
         <style>{`
-          .submissions-scroll::-webkit-scrollbar { height: 8px; }
-          .submissions-scroll::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
-          .submissions-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-          .submissions-scroll::-webkit-scrollbar-thumb:hover { background: #e92208; }
+          .submissions-scroll::-webkit-scrollbar { height: 0; }
+          .sticky-hscroll::-webkit-scrollbar { height: 8px; }
+          .sticky-hscroll::-webkit-scrollbar-track { background: #f1f5f9; }
+          .sticky-hscroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+          .sticky-hscroll::-webkit-scrollbar-thumb:hover { background: #6366f1; }
         `}</style>
+
         <div
           className="submissions-scroll min-h-[400px]"
           style={{ overflowX: "auto", position: "relative" }}
+          ref={tableScrollRef}
         >
           <div style={{ position: "sticky", top: 0, zIndex: 10, background: "white" }} />
           <table className="min-w-full divide-y divide-gray-100">
@@ -1474,6 +1530,23 @@ const SubmissionsPage = () => {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Sticky horizontal scrollbar — stays fixed at bottom of viewport while table is visible */}
+        <div
+          className="sticky-hscroll"
+          style={{
+            position: "sticky",
+            bottom: 0,
+            zIndex: 20,
+            overflowX: "auto",
+            overflowY: "hidden",
+            background: "#f8fafc",
+            borderTop: "1px solid #e5e7eb",
+          }}
+          ref={mirrorScrollRef}
+        >
+          <div ref={mirrorInnerRef} style={{ height: 1 }} />
         </div>
 
         <div className="bg-gray-50 border-t border-gray-200 px-6 py-3 text-xs text-gray-500 flex justify-between items-center">
