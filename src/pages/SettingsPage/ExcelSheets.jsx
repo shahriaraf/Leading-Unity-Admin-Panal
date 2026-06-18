@@ -391,15 +391,16 @@ export const generateDefenseSchedule = async (proposals, allSupervisors, courseF
   const sheetName = courseFilter ? `${courseFilter.courseCode} Schedule` : 'Schedule';
   const worksheet = workbook.addWorksheet(sheetName.substring(0, 30));
 
-  worksheet.columns = [
-    { header: 'SL',            key: 'sn',    width: 5  },
-    { header: 'Schedule',      key: 'time',  width: 25 },
-    { header: 'Student ID',    key: 'id',    width: 18 },
-    { header: 'Name',          key: 'name',  width: 25 },
-    { header: 'Project Title', key: 'title', width: 35 },
-    { header: 'Supervisor',    key: 'sup',   width: 15 },
-    { header: 'Signature',     key: 'sign',  width: 20 },
-  ];
+worksheet.columns = [
+  { header: 'SL',            key: 'sn',    width: 5  },
+  { header: 'Schedule',      key: 'time',  width: 25 },
+  { header: 'Student ID',    key: 'id',    width: 18 },
+  { header: 'Name',          key: 'name',  width: 25 },
+  { header: 'Project Title', key: 'title', width: 35 },
+  { header: 'Supervisor',    key: 'sup',   width: 15 },
+  { header: 'Room',          key: 'room',  width: 15 },
+  { header: 'Signature',     key: 'sign',  width: 20 },
+];
 
   const headerRow = worksheet.getRow(1);
   headerRow.font      = { name: 'Calibri', size: 11, bold: true };
@@ -430,7 +431,7 @@ export const generateDefenseSchedule = async (proposals, allSupervisors, courseF
     if (thisDateStr !== lastDateStr) {
       const dateRow = worksheet.getRow(currentRow);
       dateRow.values = [formatDateHeader(item.defenseDate)];
-      worksheet.mergeCells(`A${currentRow}:G${currentRow}`);
+      worksheet.mergeCells(`A${currentRow}:H${currentRow}`);
       dateRow.getCell(1).fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC7CE' } };
       dateRow.getCell(1).font      = { name: 'Calibri', size: 12, bold: true };
       dateRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
@@ -445,11 +446,11 @@ export const generateDefenseSchedule = async (proposals, allSupervisors, courseF
 
     team.forEach((m) => {
       const row = worksheet.getRow(currentRow);
-      row.values = {
-        sn: item.serialNumber ?? '—', time: timeStr,
-        id: m.studentId, name: m.name, title: item.title,
-        sup: supStr, sign: '',
-      };
+       row.values = {
+         sn: item.serialNumber ?? '—', time: timeStr,
+          id: m.studentId, name: m.name, title: item.title,
+          sup: supStr, room: item.room ?? '', sign: '',
+        };
       row.getCell('id').alignment   = { vertical: 'middle', horizontal: 'center' };
       row.getCell('name').alignment = { vertical: 'middle', horizontal: 'left' };
       row.eachCell({ includeEmpty: true }, (cell) => {
@@ -460,15 +461,17 @@ export const generateDefenseSchedule = async (proposals, allSupervisors, courseF
 
     const endRow = currentRow - 1;
     if (startRow <= endRow) {
-      worksheet.mergeCells(`A${startRow}:A${endRow}`);
-      worksheet.getCell(`A${startRow}`).alignment = { vertical: 'middle', horizontal: 'center' };
-      worksheet.mergeCells(`B${startRow}:B${endRow}`);
-      worksheet.getCell(`B${startRow}`).alignment = { vertical: 'middle', horizontal: 'center' };
-      worksheet.mergeCells(`E${startRow}:E${endRow}`);
-      worksheet.getCell(`E${startRow}`).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
-      worksheet.mergeCells(`F${startRow}:F${endRow}`);
-      worksheet.getCell(`F${startRow}`).alignment = { vertical: 'middle', horizontal: 'center' };
-      worksheet.mergeCells(`G${startRow}:G${endRow}`);
+worksheet.mergeCells(`A${startRow}:A${endRow}`);
+worksheet.getCell(`A${startRow}`).alignment = { vertical: 'middle', horizontal: 'center' };
+worksheet.mergeCells(`B${startRow}:B${endRow}`);
+worksheet.getCell(`B${startRow}`).alignment = { vertical: 'middle', horizontal: 'center' };
+worksheet.mergeCells(`E${startRow}:E${endRow}`);
+worksheet.getCell(`E${startRow}`).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+worksheet.mergeCells(`F${startRow}:F${endRow}`);
+worksheet.getCell(`F${startRow}`).alignment = { vertical: 'middle', horizontal: 'center' };
+worksheet.mergeCells(`G${startRow}:G${endRow}`);
+worksheet.getCell(`G${startRow}`).alignment = { vertical: 'middle', horizontal: 'center' };
+worksheet.mergeCells(`H${startRow}:H${endRow}`);
     }
   });
 
