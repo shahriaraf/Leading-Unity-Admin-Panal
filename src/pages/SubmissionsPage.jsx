@@ -420,6 +420,9 @@ const BulkSchedulePanel = ({ selectedProposals, onConfirm, onCancel, isSaving })
   const [startTime, setStartTime] = useState(new Date(new Date().setHours(9, 0, 0, 0)));
   const [endTime, setEndTime] = useState(new Date(new Date().setHours(10, 0, 0, 0)));
   const [slotMinutes, setSlotMinutes] = useState(30);
+  const [rooms, setRooms] = useState(() =>
+    Object.fromEntries(selectedProposals.map((p) => [p._id, ""]))
+  );
 
   // Sort by serial number for preview
   const sorted = [...selectedProposals].sort(
@@ -428,7 +431,7 @@ const BulkSchedulePanel = ({ selectedProposals, onConfirm, onCancel, isSaving })
 
   // Compute slots based on mode
   const previewSlots = sorted.map((p, i) => {
-    if (!date || !startTime) return { proposal: p, start: null, end: null };
+    if (!date || !startTime) return { proposal: p, start: null, end: null, room: rooms[p._id] ?? "" };
 
     if (scheduleMode === "simultaneous") {
       // All teams get the exact same time window
@@ -440,14 +443,14 @@ const BulkSchedulePanel = ({ selectedProposals, onConfirm, onCancel, isSaving })
       const e = new Date(endTime);
       slotEnd.setHours(e.getHours(), e.getMinutes(), 0, 0);
 
-      return { proposal: p, start: slotStart, end: slotEnd };
+      return { proposal: p, start: slotStart, end: slotEnd, room: rooms[p._id] ?? "" };
     } else {
       // Sequential: offset each team by slotMinutes * index
       const slotStart = new Date(date);
       const t = new Date(startTime);
       slotStart.setHours(t.getHours(), t.getMinutes() + i * slotMinutes, 0, 0);
       const slotEnd = new Date(slotStart.getTime() + slotMinutes * 60 * 1000);
-      return { proposal: p, start: slotStart, end: slotEnd };
+      return { proposal: p, start: slotStart, end: slotEnd, room: rooms[p._id] ?? "" };
     }
   });
 
@@ -639,9 +642,7 @@ const BulkSchedulePanel = ({ selectedProposals, onConfirm, onCancel, isSaving })
                     <th className="px-4 py-2.5 text-left text-gray-500 font-semibold">Team</th>
                     <th className="px-4 py-2.5 text-left text-gray-500 font-semibold w-24">Start</th>
                     <th className="px-4 py-2.5 text-left text-gray-500 font-semibold w-24">End</th>
-                    {scheduleMode === "simultaneous" && (
-                      <th className="px-4 py-2.5 text-left text-gray-500 font-semibold w-20">Room</th>
-                    )}
+                    <th className="px-4 py-2.5 text-left text-gray-500 font-semibold w-28">Room</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -662,13 +663,17 @@ const BulkSchedulePanel = ({ selectedProposals, onConfirm, onCancel, isSaving })
                       <td className="px-4 py-2.5 font-mono text-gray-500">
                         {fmt(end)}
                       </td>
-                      {scheduleMode === "simultaneous" && (
-                        <td className="px-4 py-2.5">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 border border-purple-200">
-                            Room {i + 1}
-                          </span>
-                        </td>
-                      )}
+                      <td className="px-4 py-2.5">
+                        <input
+                          type="text"
+                          placeholder="e.g. 301"
+                          value={rooms[proposal._id] ?? ""}
+                          onChange={(e) =>
+                            setRooms((prev) => ({ ...prev, [proposal._id]: e.target.value }))
+                          }
+                          className="w-full text-xs px-2 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white"
+                        />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -936,12 +941,13 @@ const SubmissionsPage = () => {
     setIsBulkSaving(true);
     try {
       const results = await Promise.allSettled(
-        previewSlots.map(({ proposal, start, end }) =>
+        previewSlots.map(({ proposal, start, end, room }) =>
           axios.put(
             `${API_BASE}/proposals/${proposal._id}/defense-date`,
             {
               date:    fromBDToUTC(start)?.toISOString() ?? start.toISOString(),
               endDate: fromBDToUTC(end)?.toISOString()   ?? end.toISOString(),
+              room:    room ?? "",
             },
             getAuthHeader()
           )
