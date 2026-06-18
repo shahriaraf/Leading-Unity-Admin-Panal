@@ -125,6 +125,7 @@ const DefenseScheduler = ({ proposal, onSave }) => {
   const [selectedDate, setSelectedDate] = useState(proposal.defenseDate ? toBDDate(proposal.defenseDate) : null);
   const [startTime, setStartTime] = useState(proposal.defenseDate ? toBDDate(proposal.defenseDate) : new Date().setHours(9, 0, 0));
   const [endTime, setEndTime] = useState(proposal.defenseEndDate ? toBDDate(proposal.defenseEndDate) : new Date().setHours(9, 30, 0));
+  const [room, setRoom] = useState(proposal.room ?? "");
 
   const handleSave = () => {
     if (!selectedDate) return;
@@ -134,7 +135,7 @@ const DefenseScheduler = ({ proposal, onSave }) => {
       d.setHours(t.getHours(), t.getMinutes());
       return d;
     };
-    onSave(buildDateTime(selectedDate, startTime), buildDateTime(selectedDate, endTime));
+    onSave(buildDateTime(selectedDate, startTime), buildDateTime(selectedDate, endTime), room);
     setIsOpen(false);
   };
 
@@ -169,6 +170,16 @@ const DefenseScheduler = ({ proposal, onSave }) => {
                 <DatePicker selected={endTime} onChange={setEndTime} timeCaption="End" {...timePickerProps} />
               </div>
             </div>
+          </div>
+          <div>
+            <label className="block text-[10px] font-semibold text-gray-400 mb-1">Room</label>
+            <input
+              type="text"
+              placeholder="e.g. 301"
+              value={room}
+              onChange={(e) => setRoom(e.target.value)}
+              className="w-full text-xs p-2 border rounded"
+            />
           </div>
           <div className="mt-4 flex gap-2">
             <button onClick={() => setIsOpen(false)} className="flex-1 py-1.5 text-xs font-semibold text-gray-600 bg-gray-100 rounded hover:bg-gray-200">Cancel</button>
@@ -272,15 +283,13 @@ const MergePanel = ({ selectedProposals, onConfirm, onCancel, isMerging }) => {
                 <button
                   key={p._id}
                   onClick={() => setPrimaryId(p._id)}
-                  className={`w-full text-left px-4 py-3 rounded-xl border-2 transition-all flex items-start gap-3 ${
-                    primaryId === p._id
-                      ? "border-indigo-500 bg-indigo-50"
-                      : "border-gray-200 bg-white hover:border-gray-300"
-                  }`}
+                  className={`w-full text-left px-4 py-3 rounded-xl border-2 transition-all flex items-start gap-3 ${primaryId === p._id
+                    ? "border-indigo-500 bg-indigo-50"
+                    : "border-gray-200 bg-white hover:border-gray-300"
+                    }`}
                 >
-                  <span className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-                    primaryId === p._id ? "border-indigo-500 bg-indigo-500 text-white" : "border-gray-300"
-                  }`}>
+                  <span className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${primaryId === p._id ? "border-indigo-500 bg-indigo-500 text-white" : "border-gray-300"
+                    }`}>
                     {primaryId === p._id && <CheckIcon />}
                   </span>
                   <div className="min-w-0">
@@ -308,13 +317,12 @@ const MergePanel = ({ selectedProposals, onConfirm, onCancel, isMerging }) => {
               <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">
                 Merged Team Preview
               </label>
-              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                totalMembers > 4
-                  ? "bg-red-100 text-red-700"
-                  : totalMembers >= 3
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${totalMembers > 4
+                ? "bg-red-100 text-red-700"
+                : totalMembers >= 3
                   ? "bg-emerald-100 text-emerald-700"
                   : "bg-amber-100 text-amber-700"
-              }`}>
+                }`}>
                 {totalMembers} / 4 members {totalMembers < 3 ? "(min 3)" : ""}
               </span>
             </div>
@@ -496,17 +504,15 @@ const BulkSchedulePanel = ({ selectedProposals, onConfirm, onCancel, isSaving })
               {/* Sequential */}
               <button
                 onClick={() => setScheduleMode("sequential")}
-                className={`flex items-start gap-3 px-4 py-3 rounded-xl border-2 text-left transition-all ${
-                  scheduleMode === "sequential"
-                    ? "border-indigo-500 bg-indigo-50"
-                    : "border-gray-200 bg-white hover:border-gray-300"
-                }`}
+                className={`flex items-start gap-3 px-4 py-3 rounded-xl border-2 text-left transition-all ${scheduleMode === "sequential"
+                  ? "border-indigo-500 bg-indigo-50"
+                  : "border-gray-200 bg-white hover:border-gray-300"
+                  }`}
               >
-                <span className={`mt-0.5 shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${
-                  scheduleMode === "sequential"
-                    ? "border-indigo-500 bg-indigo-500"
-                    : "border-gray-300"
-                }`}>
+                <span className={`mt-0.5 shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${scheduleMode === "sequential"
+                  ? "border-indigo-500 bg-indigo-500"
+                  : "border-gray-300"
+                  }`}>
                   {scheduleMode === "sequential" && (
                     <span className="w-1.5 h-1.5 rounded-full bg-white block" />
                   )}
@@ -522,17 +528,15 @@ const BulkSchedulePanel = ({ selectedProposals, onConfirm, onCancel, isSaving })
               {/* Simultaneous */}
               <button
                 onClick={() => setScheduleMode("simultaneous")}
-                className={`flex items-start gap-3 px-4 py-3 rounded-xl border-2 text-left transition-all ${
-                  scheduleMode === "simultaneous"
-                    ? "border-purple-500 bg-purple-50"
-                    : "border-gray-200 bg-white hover:border-gray-300"
-                }`}
+                className={`flex items-start gap-3 px-4 py-3 rounded-xl border-2 text-left transition-all ${scheduleMode === "simultaneous"
+                  ? "border-purple-500 bg-purple-50"
+                  : "border-gray-200 bg-white hover:border-gray-300"
+                  }`}
               >
-                <span className={`mt-0.5 shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${
-                  scheduleMode === "simultaneous"
-                    ? "border-purple-500 bg-purple-500"
-                    : "border-gray-300"
-                }`}>
+                <span className={`mt-0.5 shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${scheduleMode === "simultaneous"
+                  ? "border-purple-500 bg-purple-500"
+                  : "border-gray-300"
+                  }`}>
                   {scheduleMode === "simultaneous" && (
                     <span className="w-1.5 h-1.5 rounded-full bg-white block" />
                   )}
@@ -841,7 +845,7 @@ const SubmissionsPage = () => {
     }
   }, [activeTab]);
 
-  const handleDateUpdate = async (start, end, proposalId) => {
+  const handleDateUpdate = async (start, end, room = "", proposalId) => {
     const utcStart = fromBDToUTC(start).toISOString();
     const utcEnd = fromBDToUTC(end).toISOString();
     const updated = sortProposalsByDate(
@@ -850,7 +854,11 @@ const SubmissionsPage = () => {
     setProposals(updated);
     setFilteredProposals(updated);
     try {
-      await axios.put(`${API_BASE}/proposals/${proposalId}/defense-date`, { date: utcStart, endDate: utcEnd }, getAuthHeader());
+      await axios.put(
+        `${API_BASE}/proposals/${proposalId}/defense-date`,
+        { date: utcStart, endDate: utcEnd, room },
+        getAuthHeader()
+      );
       toast.success("Schedule Updated");
     } catch {
       toast.error("Failed to schedule");
@@ -945,9 +953,9 @@ const SubmissionsPage = () => {
           axios.put(
             `${API_BASE}/proposals/${proposal._id}/defense-date`,
             {
-              date:    fromBDToUTC(start)?.toISOString() ?? start.toISOString(),
-              endDate: fromBDToUTC(end)?.toISOString()   ?? end.toISOString(),
-              room:    room ?? "",
+              date: fromBDToUTC(start)?.toISOString() ?? start.toISOString(),
+              endDate: fromBDToUTC(end)?.toISOString() ?? end.toISOString(),
+              room: room ?? "",
             },
             getAuthHeader()
           )
@@ -1072,50 +1080,47 @@ const SubmissionsPage = () => {
 
     return (
       <tr
-        className={`group transition-colors duration-150 ${
-          isDifferentCourse
-            ? "opacity-40 cursor-not-allowed bg-gray-50"
-            : isBulkDisabled
+        className={`group transition-colors duration-150 ${isDifferentCourse
+          ? "opacity-40 cursor-not-allowed bg-gray-50"
+          : isBulkDisabled
             ? "opacity-40 cursor-not-allowed"
             : bulkMode && isBulkSelected
-            ? "bg-blue-50 border-l-4 border-blue-500"
-            : mergeMode && isSelected
-            ? "bg-violet-50 border-l-4 border-violet-500"
-            : mergeMode || bulkMode
-            ? "hover:bg-gray-50/80 cursor-pointer"
-            : isComplete
-            ? "bg-emerald-100/60 border-l-4 border-emerald-400 hover:bg-emerald-100"
-            : "hover:bg-gray-50/80"
-        }`}
+              ? "bg-blue-50 border-l-4 border-blue-500"
+              : mergeMode && isSelected
+                ? "bg-violet-50 border-l-4 border-violet-500"
+                : mergeMode || bulkMode
+                  ? "hover:bg-gray-50/80 cursor-pointer"
+                  : isComplete
+                    ? "bg-emerald-100/60 border-l-4 border-emerald-400 hover:bg-emerald-100"
+                    : "hover:bg-gray-50/80"
+          }`}
         onClick={(mergeMode || bulkMode) ? handleRowClick : undefined}
         title={
           isDifferentCourse
             ? `Only ${lockedCourseCode} proposals can be merged together`
             : isBulkDisabled
-            ? "Only approved teams can be scheduled"
-            : undefined
+              ? "Only approved teams can be scheduled"
+              : undefined
         }
       >
         {/* Merge checkbox / Bulk checkbox / Serial number */}
         <td className="px-4 py-4 text-center align-top w-10">
           {mergeMode ? (
-            <span className={`inline-flex items-center justify-center w-5 h-5 rounded border-2 transition-all ${
-              isSelected
-                ? "bg-violet-600 border-violet-600 text-white"
-                : isDifferentCourse
+            <span className={`inline-flex items-center justify-center w-5 h-5 rounded border-2 transition-all ${isSelected
+              ? "bg-violet-600 border-violet-600 text-white"
+              : isDifferentCourse
                 ? "border-gray-200 bg-gray-100"
                 : "border-gray-300 bg-white"
-            }`}>
+              }`}>
               {isSelected && <CheckIcon />}
             </span>
           ) : bulkMode ? (
-            <span className={`inline-flex items-center justify-center w-5 h-5 rounded border-2 transition-all ${
-              isBulkSelected
-                ? "bg-blue-600 border-blue-600 text-white"
-                : isBulkDisabled
+            <span className={`inline-flex items-center justify-center w-5 h-5 rounded border-2 transition-all ${isBulkSelected
+              ? "bg-blue-600 border-blue-600 text-white"
+              : isBulkDisabled
                 ? "border-gray-200 bg-gray-100"
                 : "border-gray-300 bg-white"
-            }`}>
+              }`}>
               {isBulkSelected && <CheckIcon />}
             </span>
           ) : proposal.serialNumber != null ? (
@@ -1195,7 +1200,10 @@ const SubmissionsPage = () => {
         {/* Defense schedule */}
         <td className="px-6 py-4 align-top">
           {proposal.status === "approved" && !mergeMode ? (
-            <DefenseScheduler proposal={proposal} onSave={(s, e) => handleDateUpdate(s, e, proposal._id)} />
+            <DefenseScheduler
+              proposal={proposal}
+              onSave={(s, e, room) => handleDateUpdate(s, e, room, proposal._id)}
+            />
           ) : (
             <span className="text-xs text-gray-400 italic">--</span>
           )}
@@ -1231,27 +1239,25 @@ const SubmissionsPage = () => {
         {/* Actions */}
         <td className="px-6 py-4 text-right align-top whitespace-nowrap">
           {mergeMode ? (
-            <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg transition-colors ${
-              isSelected
-                ? "bg-violet-100 text-violet-700"
-                : isDifferentCourse
+            <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg transition-colors ${isSelected
+              ? "bg-violet-100 text-violet-700"
+              : isDifferentCourse
                 ? "text-gray-300"
                 : "text-gray-400"
-            }`}>
+              }`}>
               {isSelected
                 ? "Selected"
                 : isDifferentCourse
-                ? `${lockedCourseCode} only`
-                : "Click to select"}
+                  ? `${lockedCourseCode} only`
+                  : "Click to select"}
             </span>
           ) : bulkMode ? (
-            <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg transition-colors ${
-              isBulkSelected
-                ? "bg-blue-100 text-blue-700"
-                : isBulkDisabled
+            <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg transition-colors ${isBulkSelected
+              ? "bg-blue-100 text-blue-700"
+              : isBulkDisabled
                 ? "text-gray-300"
                 : "text-gray-400"
-            }`}>
+              }`}>
               {isBulkSelected ? "Selected" : isBulkDisabled ? "Not approved" : "Click to select"}
             </span>
           ) : (
@@ -1379,16 +1385,14 @@ const SubmissionsPage = () => {
 
       {/* Merge mode toolbar — only visible on Team Requests tab */}
       {activeTab === "requests" && (
-        <div className={`mb-4 flex items-center gap-3 px-5 py-3 rounded-xl border transition-all ${
-          mergeMode ? "bg-violet-50 border-violet-200" : "bg-white border-gray-200"
-        }`}>
+        <div className={`mb-4 flex items-center gap-3 px-5 py-3 rounded-xl border transition-all ${mergeMode ? "bg-violet-50 border-violet-200" : "bg-white border-gray-200"
+          }`}>
           <button
             onClick={toggleMergeMode}
-            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
-              mergeMode
-                ? "bg-violet-600 text-white hover:bg-violet-700"
-                : "bg-white border border-gray-300 text-gray-700 hover:border-violet-400 hover:text-violet-700"
-            }`}
+            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all ${mergeMode
+              ? "bg-violet-600 text-white hover:bg-violet-700"
+              : "bg-white border border-gray-300 text-gray-700 hover:border-violet-400 hover:text-violet-700"
+              }`}
           >
             <MergeIcon />
             {mergeMode ? "Exit Merge Mode" : "Merge Teams"}
@@ -1427,16 +1431,14 @@ const SubmissionsPage = () => {
 
       {/* Bulk schedule toolbar — only visible on Official Teams tab */}
       {activeTab === "official" && (
-        <div className={`mb-4 flex items-center gap-3 px-5 py-3 rounded-xl border transition-all ${
-          bulkMode ? "bg-blue-50 border-blue-200" : "bg-white border-gray-200"
-        }`}>
+        <div className={`mb-4 flex items-center gap-3 px-5 py-3 rounded-xl border transition-all ${bulkMode ? "bg-blue-50 border-blue-200" : "bg-white border-gray-200"
+          }`}>
           <button
             onClick={toggleBulkMode}
-            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
-              bulkMode
-                ? "bg-blue-600 text-white hover:bg-blue-700"
-                : "bg-white border border-gray-300 text-gray-700 hover:border-blue-400 hover:text-blue-700"
-            }`}
+            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all ${bulkMode
+              ? "bg-blue-600 text-white hover:bg-blue-700"
+              : "bg-white border border-gray-300 text-gray-700 hover:border-blue-400 hover:text-blue-700"
+              }`}
           >
             <BulkCalendarIcon />
             {bulkMode ? "Exit Bulk Schedule" : "Bulk Schedule"}
@@ -1509,14 +1511,13 @@ const SubmissionsPage = () => {
                     title={isBulkAll ? "Select / deselect all approved teams" : undefined}
                   >
                     {isBulkAll ? (
-                      <span className={`inline-flex items-center justify-center w-5 h-5 rounded border-2 transition-all ${
-                        filteredProposals.filter(p => p.status === "approved").length > 0 &&
+                      <span className={`inline-flex items-center justify-center w-5 h-5 rounded border-2 transition-all ${filteredProposals.filter(p => p.status === "approved").length > 0 &&
                         filteredProposals.filter(p => p.status === "approved").every(p => selectedForBulk.some(s => s._id === p._id))
-                          ? "bg-blue-600 border-blue-600 text-white"
-                          : "border-gray-400 bg-white"
-                      }`}>
+                        ? "bg-blue-600 border-blue-600 text-white"
+                        : "border-gray-400 bg-white"
+                        }`}>
                         {filteredProposals.filter(p => p.status === "approved").length > 0 &&
-                         filteredProposals.filter(p => p.status === "approved").every(p => selectedForBulk.some(s => s._id === p._id))
+                          filteredProposals.filter(p => p.status === "approved").every(p => selectedForBulk.some(s => s._id === p._id))
                           && <CheckIcon />}
                       </span>
                     ) : label}
