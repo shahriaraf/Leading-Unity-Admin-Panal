@@ -332,8 +332,29 @@ const SupervisorTeamsDashboard = () => {
     const fetchData = async () => {
       try {
         const config = getAuthHeader();
-        const res = await axios.get(`${API_BASE}/proposals`, config);
-        const relevant = res.data.filter(
+
+        // Fetch first page
+        const firstRes = await axios.get(`${API_BASE}/proposals?page=1&limit=50`, config);
+        const { data: firstPage, totalPages } = firstRes.data;
+        let allProposals = [...firstPage];
+
+        // If more pages exist, fetch them all in parallel
+        if (totalPages > 1) {
+          const remainingPages = Array.from(
+            { length: totalPages - 1 },
+            (_, i) => i + 2
+          );
+          const remainingRes = await Promise.all(
+            remainingPages.map((page) =>
+              axios.get(`${API_BASE}/proposals?page=${page}&limit=50`, config)
+            )
+          );
+          for (const res of remainingRes) {
+            allProposals = [...allProposals, ...res.data.data];
+          }
+        }
+
+        const relevant = allProposals.filter(
           (p) => p.status === "approved" && p.assignedSupervisor
         );
         const map = new Map();
