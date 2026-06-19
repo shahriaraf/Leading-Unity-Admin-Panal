@@ -763,17 +763,45 @@ const SubmissionsPage = () => {
   const [showBulkPanel, setShowBulkPanel] = useState(false);
   const [isBulkSaving, setIsBulkSaving] = useState(false);
 
+  // ── fetchData: loads ALL proposals (all pages) + users in parallel ──────────
+  // The backend now returns { data, total, page, totalPages } instead of a plain
+  // array. We fetch page by page until we have everything, then merge locally.
+  // This keeps the existing client-side filtering/sorting logic unchanged.
   const fetchData = useCallback(async () => {
     try {
       const config = getAuthHeader();
-      const [proposalsRes, usersRes] = await Promise.all([
-        axios.get(`${API_BASE}/proposals`, config),
+
+      // Fetch first page + users at the same time
+      const [firstRes, usersRes] = await Promise.all([
+        axios.get(`${API_BASE}/proposals?page=1&limit=50`, config),
         axios.get(`${API_BASE}/users`, config),
       ]);
+
       setAllSupervisors(usersRes.data.filter((u) => u.role === "supervisor"));
-      const rawData = proposalsRes.data;
-      setCoursesList([...new Set(rawData.map((p) => p.course?.courseCode).filter(Boolean))]);
-      const sortedData = sortProposalsByDate(rawData);
+
+      const { data: firstPage, totalPages } = firstRes.data;
+      let allProposals = [...firstPage];
+
+      // If there are more pages, fetch them all in parallel
+      if (totalPages > 1) {
+        const remainingPages = Array.from(
+          { length: totalPages - 1 },
+          (_, i) => i + 2
+        );
+        const remainingRes = await Promise.all(
+          remainingPages.map((page) =>
+            axios.get(`${API_BASE}/proposals?page=${page}&limit=50`, config)
+          )
+        );
+        for (const res of remainingRes) {
+          allProposals = [...allProposals, ...res.data.data];
+        }
+      }
+
+      setCoursesList([
+        ...new Set(allProposals.map((p) => p.course?.courseCode).filter(Boolean)),
+      ]);
+      const sortedData = sortProposalsByDate(allProposals);
       setProposals(sortedData);
       setFilteredProposals(sortedData);
     } catch {
