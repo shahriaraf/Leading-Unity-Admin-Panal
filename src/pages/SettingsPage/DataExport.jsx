@@ -5,18 +5,9 @@ import { generateMainReport, generateDefenseSchedule, generateRequestsReport } f
 import { Icon, ICONS, ModernCard } from './Ui';
 import { CalendarCheck, UserPlus } from 'lucide-react';
 
-/**
- * UX improvements:
- * - Master export actions have clear labels with icons explaining the output type
- * - Added a short description under each button so admins know what they're downloading
- * - Course-specific section has a clear "filter" framing — not a separate feature,
- *   just a scoped version of the same exports
- * - Loading state is more descriptive (shows what's being generated)
- */
-
 const EXPORT_META = {
-  main:     { label: 'Full Report',             desc: 'All proposals with scores & supervisors' },
-  schedule: { label: 'Defense Schedule',         desc: 'Time slots, rooms & assigned panels'    },
+  main:     { label: 'Full Report',              desc: 'All proposals with scores & supervisors' },
+  schedule: { label: 'Defense Schedule',          desc: 'Time slots, rooms & assigned panels'    },
   requests: { label: 'Team Requests (incomplete)', desc: 'Groups still missing supervisors'       },
 };
 
@@ -27,15 +18,16 @@ const DataExport = ({ courses, evalConfig }) => {
     setExporting(type + (courseFilter ? courseFilter._id : ''));
     const toastId = toast.loading(`Generating ${EXPORT_META[type].label}…`);
     try {
-      // ✅ Replace the current handleExport fetch block with this:
-const [{ data: proposals }, { data: users }] = await Promise.all([
-  api.get('proposals/export'),   // ← single call, returns plain array
-  api.get('users'),
-]);
-const allSupervisors = users.filter(u => u.role === 'supervisor');
+      const [proposalsRes, { data: users }] = await Promise.all([
+        api.get('proposals?limit=1000'),
+        api.get('users'),
+      ]);
+
+      // Backend returns { data, total, page, totalPages } — extract the array safely
+      const proposals = proposalsRes.data?.data ?? proposalsRes.data ?? [];
       const allSupervisors = users.filter(u => u.role === 'supervisor');
 
-      if (type === 'main')         await generateMainReport(proposals, evalConfig, allSupervisors, courseFilter);
+      if (type === 'main')          await generateMainReport(proposals, evalConfig, allSupervisors, courseFilter);
       else if (type === 'schedule') await generateDefenseSchedule(proposals, allSupervisors, courseFilter);
       else if (type === 'requests') await generateRequestsReport(proposals, courseFilter);
 
@@ -82,9 +74,9 @@ const allSupervisors = users.filter(u => u.role === 'supervisor');
               <span className="shrink-0">{icons[type]}</span>
               <span className="text-left">
                 <span className="block">{label}</span>
-                <span className={`block text-[10px] font-medium opacity-60`}>{desc}</span>
+                <span className="block text-[10px] font-medium opacity-60">{desc}</span>
               </span>
-              {isExporting === type && <span className="ml-auto animate-spin">↻</span>}
+              {exporting === type && <span className="ml-auto animate-spin">↻</span>}
             </button>
           );
         })}
@@ -95,7 +87,9 @@ const allSupervisors = users.filter(u => u.role === 'supervisor');
         <>
           <div className="flex items-center gap-2 mb-3">
             <div className="h-px bg-slate-100 flex-1" />
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Filter by course</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">
+              Filter by course
+            </span>
             <div className="h-px bg-slate-100 flex-1" />
           </div>
 
