@@ -1,6 +1,11 @@
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
+// --- Helper: Safe teamMembers accessor ---
+// Always returns a real array, even if teamMembers is null, undefined, or a non-array object.
+const safeMembers = (teamMembers) =>
+  Array.isArray(teamMembers) ? teamMembers : [];
+
 // --- Helper: Get Supervisor Abbreviation ---
 const getSupLabel = (sup, allSupervisors = []) => {
   if (!sup) return 'N/A';
@@ -47,12 +52,12 @@ const getCriterionValue = (mark, index) => {
   return 0;
 };
 
-// 🟢 FIX: Leader CGPA lives inside teamMembers under their own studentId.
+// Leader CGPA lives inside teamMembers under their own studentId.
 // proposal.student is a populated User doc — it has no cgpa field on the schema.
 const getLeaderCgpa = (proposal) => {
   const leaderStudentId = proposal.student?.studentId;
   if (!leaderStudentId) return null;
-  const leaderEntry = (proposal.teamMembers ?? []).find(
+  const leaderEntry = safeMembers(proposal.teamMembers).find(
     (m) => String(m.studentId) === String(leaderStudentId)
   );
   return leaderEntry?.cgpa ?? null;
@@ -105,11 +110,7 @@ const computeRegularDefenseAvg = (presentMarks) => {
 // =============================================================================
 export const generateMainReport = async (proposals, evalConfig, allSupervisors, courseFilter = null) => {
   let data = proposals.filter(p => {
-    // 🟢 FIX: Count members correctly — leader is separate from teamMembers.
-    // The leader is stored in p.student; non-leader members are in p.teamMembers.
-    // Filter out the leader's own entry from teamMembers (submitted as part of the form)
-    // to get the true non-leader count, then add 1 for the leader.
-    const nonLeaderMembers = (p.teamMembers || []).filter(
+    const nonLeaderMembers = safeMembers(p.teamMembers).filter(
       m => String(m.studentId) !== String(p.student?.studentId)
     );
     const memberCount = 1 + nonLeaderMembers.length;
@@ -195,35 +196,32 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
   let currentRow = 2;
 
   data.forEach((item) => {
-    // 🟢 FIX: Build a unified all-members list with the leader first,
-    // reading the leader's CGPA from their teamMembers entry (not from User doc).
     const leaderStudentId = item.student?.studentId;
-    const leaderCgpa = getLeaderCgpa(item);
+    const leaderCgpa      = getLeaderCgpa(item);
+    const itemMembers     = safeMembers(item.teamMembers);
 
-    // Leader row built from the populated student object + cgpa from teamMembers
+    // Leader row — CGPA and mobile come from teamMembers entry, not the User doc
     const leaderRow = item.student ? [{
       name:      item.student.name,
       studentId: item.student.studentId,
       cgpa:      leaderCgpa,
       email:     item.student.email,
-      mobile:    // try to get mobile from teamMembers leader entry
-                 (item.teamMembers || []).find(
+      mobile:    itemMembers.find(
                    m => String(m.studentId) === String(leaderStudentId)
                  )?.mobile ?? null,
       _isLeader: true,
     }] : [];
 
     // Non-leader members (exclude leader's own entry from teamMembers)
-    const nonLeaderMembers = (item.teamMembers || []).filter(
+    const nonLeaderMembers = itemMembers.filter(
       m => String(m.studentId) !== String(leaderStudentId)
     );
 
     // Full team: leader first, then the rest
-    const team = [...leaderRow, ...nonLeaderMembers];
-
+    const team    = [...leaderRow, ...nonLeaderMembers];
     const startRow = currentRow;
     const supStr   = getSupLabel(item.assignedSupervisor, allSupervisors);
-    const allMarks = item.marks || [];
+    const allMarks = Array.isArray(item.marks) ? item.marks : [];
 
     team.forEach((m) => {
       const ownMark  = allMarks.find(mk => mk.studentId === m.studentId && mk.type === 'own');
@@ -310,11 +308,11 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
         sn:    item.serialNumber ?? '—',
         c:     item.course?.courseCode || 'N/A',
         title: item.title,
-        count: team.length,        // 🟢 now correct — includes leader
+        count: team.length,
         name:  m.name,
         sid:   m.studentId,
         sup:   supStr,
-        cgpa:  m.cgpa  || '-',     // 🟢 leader.cgpa now comes from teamMembers entry
+        cgpa:  m.cgpa  || '-',
         email: m.email || '-',
         phone: m.mobile || '-',
         link:  item.description || 'N/A',
@@ -332,9 +330,9 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
       if (item.description && item.description.startsWith('http')) {
         const linkCell = row.getCell('link');
         linkCell.value = {
-          text: 'View Proposal',
+          text:     'View Proposal',
           hyperlink: item.description,
-          tooltip: 'Click to open drive link',
+          tooltip:  'Click to open drive link',
         };
         linkCell.font = { color: { argb: 'FF0000FF' }, underline: true };
       }
@@ -391,16 +389,16 @@ export const generateDefenseSchedule = async (proposals, allSupervisors, courseF
   const sheetName = courseFilter ? `${courseFilter.courseCode} Schedule` : 'Schedule';
   const worksheet = workbook.addWorksheet(sheetName.substring(0, 30));
 
-worksheet.columns = [
-  { header: 'SL',            key: 'sn',    width: 5  },
-  { header: 'Schedule',      key: 'time',  width: 25 },
-  { header: 'Student ID',    key: 'id',    width: 18 },
-  { header: 'Name',          key: 'name',  width: 25 },
-  { header: 'Project Title', key: 'title', width: 35 },
-  { header: 'Supervisor',    key: 'sup',   width: 15 },
-  { header: 'Room',          key: 'room',  width: 15 },
-  { header: 'Signature',     key: 'sign',  width: 20 },
-];
+  worksheet.columns = [
+    { header: 'SL',            key: 'sn',    width: 5  },
+    { header: 'Schedule',      key: 'time',  width: 25 },
+    { header: 'Student ID',    key: 'id',    width: 18 },
+    { header: 'Name',          key: 'name',  width: 25 },
+    { header: 'Project Title', key: 'title', width: 35 },
+    { header: 'Supervisor',    key: 'sup',   width: 15 },
+    { header: 'Room',          key: 'room',  width: 15 },
+    { header: 'Signature',     key: 'sign',  width: 20 },
+  ];
 
   const headerRow = worksheet.getRow(1);
   headerRow.font      = { name: 'Calibri', size: 11, bold: true };
@@ -414,17 +412,19 @@ worksheet.columns = [
   let lastDateStr = '';
 
   data.forEach((item) => {
-    // 🟢 FIX: Build full team with leader first for defense schedule too
-    const leaderStudentId = item.student?.studentId;
+    const leaderStudentId  = item.student?.studentId;
+    const itemMembers      = safeMembers(item.teamMembers);
+
     const leaderEntry = item.student ? [{
       name:      item.student.name,
       studentId: item.student.studentId,
     }] : [];
-    const nonLeaderMembers = (item.teamMembers || []).filter(
+
+    const nonLeaderMembers = itemMembers.filter(
       m => String(m.studentId) !== String(leaderStudentId)
     );
-    const team = [...leaderEntry, ...nonLeaderMembers];
 
+    const team = [...leaderEntry, ...nonLeaderMembers];
     if (team.length === 0) return;
 
     const thisDateStr = new Date(item.defenseDate).toDateString();
@@ -446,11 +446,16 @@ worksheet.columns = [
 
     team.forEach((m) => {
       const row = worksheet.getRow(currentRow);
-       row.values = {
-         sn: item.serialNumber ?? '—', time: timeStr,
-          id: m.studentId, name: m.name, title: item.title,
-          sup: supStr, room: item.room ?? '', sign: '',
-        };
+      row.values = {
+        sn:    item.serialNumber ?? '—',
+        time:  timeStr,
+        id:    m.studentId,
+        name:  m.name,
+        title: item.title,
+        sup:   supStr,
+        room:  item.room ?? '',
+        sign:  '',
+      };
       row.getCell('id').alignment   = { vertical: 'middle', horizontal: 'center' };
       row.getCell('name').alignment = { vertical: 'middle', horizontal: 'left' };
       row.eachCell({ includeEmpty: true }, (cell) => {
@@ -461,17 +466,17 @@ worksheet.columns = [
 
     const endRow = currentRow - 1;
     if (startRow <= endRow) {
-worksheet.mergeCells(`A${startRow}:A${endRow}`);
-worksheet.getCell(`A${startRow}`).alignment = { vertical: 'middle', horizontal: 'center' };
-worksheet.mergeCells(`B${startRow}:B${endRow}`);
-worksheet.getCell(`B${startRow}`).alignment = { vertical: 'middle', horizontal: 'center' };
-worksheet.mergeCells(`E${startRow}:E${endRow}`);
-worksheet.getCell(`E${startRow}`).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
-worksheet.mergeCells(`F${startRow}:F${endRow}`);
-worksheet.getCell(`F${startRow}`).alignment = { vertical: 'middle', horizontal: 'center' };
-worksheet.mergeCells(`G${startRow}:G${endRow}`);
-worksheet.getCell(`G${startRow}`).alignment = { vertical: 'middle', horizontal: 'center' };
-worksheet.mergeCells(`H${startRow}:H${endRow}`);
+      worksheet.mergeCells(`A${startRow}:A${endRow}`);
+      worksheet.getCell(`A${startRow}`).alignment = { vertical: 'middle', horizontal: 'center' };
+      worksheet.mergeCells(`B${startRow}:B${endRow}`);
+      worksheet.getCell(`B${startRow}`).alignment = { vertical: 'middle', horizontal: 'center' };
+      worksheet.mergeCells(`E${startRow}:E${endRow}`);
+      worksheet.getCell(`E${startRow}`).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+      worksheet.mergeCells(`F${startRow}:F${endRow}`);
+      worksheet.getCell(`F${startRow}`).alignment = { vertical: 'middle', horizontal: 'center' };
+      worksheet.mergeCells(`G${startRow}:G${endRow}`);
+      worksheet.getCell(`G${startRow}`).alignment = { vertical: 'middle', horizontal: 'center' };
+      worksheet.mergeCells(`H${startRow}:H${endRow}`);
     }
   });
 
@@ -508,7 +513,7 @@ export const generateRequestsReport = async (proposals, courseFilter = null) => 
   let currentRow = 2;
 
   data.forEach((item) => {
-    const members  = item.teamMembers || [];
+    const members  = safeMembers(item.teamMembers);
     const startRow = currentRow;
 
     members.forEach(m => {
