@@ -27,10 +27,12 @@ const DataExport = ({ courses, evalConfig }) => {
     setExporting(type + (courseFilter ? courseFilter._id : ''));
     const toastId = toast.loading(`Generating ${EXPORT_META[type].label}…`);
     try {
-      const [{ data: proposals }, { data: users }] = await Promise.all([
-        api.get('proposals'),
-        api.get('users'),
-      ]);
+      // ✅ Replace the current handleExport fetch block with this:
+const [{ data: proposals }, { data: users }] = await Promise.all([
+  api.get('proposals/export'),   // ← single call, returns plain array
+  api.get('users'),
+]);
+const allSupervisors = users.filter(u => u.role === 'supervisor');
       const allSupervisors = users.filter(u => u.role === 'supervisor');
 
       if (type === 'main')         await generateMainReport(proposals, evalConfig, allSupervisors, courseFilter);
