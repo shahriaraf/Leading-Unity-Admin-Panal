@@ -104,7 +104,7 @@ const Layout = () => {
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-30 bg-[#0d2331] flex flex-col transition-all duration-300 ease-in-out md:relative md:flex
+        className={`fixed inset-y-0 left-0 z-30 bg-[#0d2331] flex flex-col transition-all duration-100 ease-in-out md:relative md:flex
           ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
           md:translate-x-0
           ${isCollapsed ? 'w-[72px]' : 'w-56'}
