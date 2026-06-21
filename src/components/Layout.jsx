@@ -17,6 +17,9 @@ const TeamsDetailsIcon = () => (
       d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
   </svg>
 );
+// --- Chevron icons for collapse toggle ---
+const ChevronLeftIcon  = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>;
+const ChevronRightIcon = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>;
 
 const NAV_LINKS = [
   { to: '/',            label: 'Users',       icon: UsersIcon    },
@@ -33,6 +36,8 @@ const Layout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  // NEW: desktop sidebar collapsed state
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const logoutHandler = () => {
     localStorage.removeItem('userInfo');
@@ -57,18 +62,25 @@ const Layout = () => {
     const isActive = location.pathname === to;
     return (
       <li className="relative mb-1">
-        {isActive && <>
+        {/* Only show curves when sidebar is expanded (they need the rounded label to make sense) */}
+        {isActive && !isCollapsed && <>
           <Curve position="top" />
           <Curve position="bottom" />
         </>}
         <Link
           to={to}
           onClick={() => setIsMobileMenuOpen(false)}
-          className={`relative flex items-center gap-4 px-6 py-3.5 text-sm font-semibold transition-all duration-200 ml-4
-            ${isActive ? `bg-[${CONTENT_BG}] text-[${SIDEBAR_BG}] rounded-l-[30px]` : 'text-[#8daab9] hover:text-white'}`}
+          title={isCollapsed ? label : undefined}
+          className={`relative flex items-center gap-4 py-3.5 text-sm font-semibold transition-all duration-200
+            ${isCollapsed ? 'justify-center px-0 mx-2 rounded-lg' : 'px-6 ml-4'}
+            ${isActive
+              ? `bg-[${CONTENT_BG}] text-[${SIDEBAR_BG}] ${!isCollapsed ? 'rounded-l-[30px]' : 'rounded-lg'}`
+              : 'text-[#8daab9] hover:text-white'
+            }`}
         >
           <Icon />
-          <span>{label}</span>
+          {/* Hide label when collapsed on desktop */}
+          {!isCollapsed && <span>{label}</span>}
         </Link>
       </li>
     );
@@ -91,18 +103,28 @@ const Layout = () => {
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 z-30 w-64 bg-[#0d2331] flex flex-col transition-transform duration-300 ease-in-out md:translate-x-0 md:relative md:flex ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside
+        className={`fixed inset-y-0 left-0 z-30 bg-[#0d2331] flex flex-col transition-all duration-300 ease-in-out md:relative md:flex
+          ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
+          md:translate-x-0
+          ${isCollapsed ? 'w-[72px]' : 'w-64'}
+        `}
+      >
 
-        {/* Logo section — replaces the avatar circle */}
-        <div className="flex flex-col items-center pt-8 pb-6 px-6">
-          <div className="w-full flex items-center justify-center mb-3 p-2">
+        {/* Logo section */}
+        <div className={`flex flex-col items-center pt-8 pb-6 px-6 ${isCollapsed ? 'px-2' : 'px-6'}`}>
+          {/* Always show the logo; shrink it when collapsed */}
+          <div className={`flex items-center justify-center mb-3 p-2 ${isCollapsed ? 'w-10' : 'w-full max-w-[100px]'}`}>
             <img
               src={logo}
               alt="LeadUnity"
-              className="w-full max-w-[100px] object-contain drop-shadow-md"
+              className="w-full object-contain drop-shadow-md"
             />
           </div>
-          <p className="text-[#8daab9] text-xs">luadmin@gmail.com</p>
+          {/* Hide email when collapsed */}
+          {!isCollapsed && (
+            <p className="text-[#8daab9] text-xs">luadmin@gmail.com</p>
+          )}
         </div>
 
         {/* Divider */}
@@ -116,19 +138,33 @@ const Layout = () => {
         </nav>
 
         {/* Logout */}
-        <div className="p-6">
+        <div className={`p-6 ${isCollapsed ? 'flex justify-center p-4' : ''}`}>
           <button
             onClick={logoutHandler}
-            className="flex items-center gap-3 text-[#8daab9] hover:text-red-400 transition-colors text-sm font-medium w-full px-4"
+            title={isCollapsed ? 'Logout' : undefined}
+            className={`flex items-center gap-3 text-[#8daab9] hover:text-red-400 transition-colors text-sm font-medium w-full
+              ${isCollapsed ? 'justify-center px-0' : 'px-4'}`}
           >
-            <LogoutIcon /> Logout
+            <LogoutIcon />
+            {!isCollapsed && <span>Logout</span>}
+          </button>
+        </div>
+
+        {/* Collapse toggle button — desktop only */}
+        <div className="hidden md:flex border-t border-white/10 p-2 justify-center">
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="w-full flex items-center justify-center rounded-lg py-1.5 text-[#8daab9] hover:text-white hover:bg-white/10 transition-colors"
+            title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {isCollapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
           </button>
         </div>
       </aside>
 
       {/* Main content */}
       <main className="flex-1 relative flex flex-col h-screen overflow-hidden">
-        <div className="md:hidden h-16 shrink-0 bg-[#eef5f9]" /> {/* Spacer for mobile header */}
+        <div className="md:hidden h-16 shrink-0 bg-[#eef5f9]" />
         <div className="flex-1 overflow-y-auto p-4 md:p-8">
           <div className="max-w-7xl mx-auto">
             <Outlet />
