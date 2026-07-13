@@ -110,13 +110,12 @@ const computeRegularDefenseAvg = (presentMarks) => {
 // =============================================================================
 export const generateMainReport = async (proposals, evalConfig, allSupervisors, courseFilter = null) => {
   let data = proposals.filter(p => {
-    const nonLeaderMembers = safeMembers(p.teamMembers).filter(
-      m => String(m.studentId) !== String(p.student?.studentId)
-    );
-    const memberCount = 1 + nonLeaderMembers.length;
     const matchesCourse = courseFilter ? p.course?._id === courseFilter._id : true;
-    const isOfficialTeam = memberCount >= 3 && memberCount <= 4;
-    return matchesCourse && isOfficialTeam;
+    // Only exclude proposals that are still pending requests (no serial number
+    // assigned yet) — those belong in the "Team Requests" report instead.
+    // Team size is NOT a valid reason to drop a submission from the full report.
+    const isScheduled = p.serialNumber !== null && p.serialNumber !== undefined;
+    return matchesCourse && isScheduled;
   });
 
   data.sort((a, b) => (a.serialNumber ?? 0) - (b.serialNumber ?? 0));
@@ -148,6 +147,7 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
     { header: 'Name',                  key: 'name',  width: 25 },
     { header: 'Student ID',            key: 'sid',   width: 18 },
     { header: 'Supervisor',            key: 'sup',   width: 15 },
+    { header: 'Pref Supervisors',      key: 'prefSup', width: 22 },
     { header: 'CGPA',                  key: 'cgpa',  width: 10 },
     { header: 'Email',                 key: 'email', width: 30 },
     { header: 'Phone',                 key: 'phone', width: 15 },
@@ -221,6 +221,9 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
     const team    = [...leaderRow, ...nonLeaderMembers];
     const startRow = currentRow;
     const supStr   = getSupLabel(item.assignedSupervisor, allSupervisors);
+    const prefSupStr = Array.isArray(item.supervisors) && item.supervisors.length > 0
+      ? item.supervisors.map(s => getSupLabel(s, allSupervisors)).join(', ')
+      : 'N/A';
     const allMarks = Array.isArray(item.marks) ? item.marks : [];
 
     team.forEach((m) => {
@@ -312,6 +315,7 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
         name:  m.name,
         sid:   m.studentId,
         sup:   supStr,
+        prefSup: prefSupStr,
         cgpa:  m.cgpa  || '-',
         email: m.email || '-',
         phone: m.mobile || '-',
@@ -351,7 +355,7 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
         };
         cell.alignment = { vertical: 'middle', horizontal: 'center' };
       });
-      ['title', 'name', 'email', 'link'].forEach(
+      ['title', 'name', 'email', 'link', 'prefSup'].forEach(
         k => (row.getCell(k).alignment.horizontal = 'left')
       );
 
@@ -360,7 +364,7 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
 
     const endRow = currentRow - 1;
     if (startRow <= endRow) {
-      ['A', 'B', 'C', 'D', 'G', 'K'].forEach(col =>
+      ['A', 'B', 'C', 'D', 'G', 'H', 'L'].forEach(col =>
         worksheet.mergeCells(`${col}${startRow}:${col}${endRow}`)
       );
     }
