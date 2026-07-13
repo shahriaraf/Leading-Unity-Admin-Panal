@@ -14,17 +14,36 @@ const EXPORT_META = {
 const DataExport = ({ courses, evalConfig }) => {
   const [exporting, setExporting] = React.useState(null);
 
+  // The backend paginates its /proposals response ({ data, total, page, totalPages })
+  // and appears to cap the page size regardless of a `limit` query param. Fetch every
+  // page and concatenate, so exports always cover the full submission list.
+  const fetchAllProposals = async () => {
+    let page = 1;
+    let totalPages = 1;
+    let allProposals = [];
+
+    do {
+      const res = await api.get(`proposals?limit=1000&page=${page}`);
+      const body = res.data;
+      const pageData = Array.isArray(body?.data) ? body.data : (Array.isArray(body) ? body : []);
+      allProposals = allProposals.concat(pageData);
+
+      totalPages = Number(body?.totalPages) || 1;
+      page++;
+    } while (page <= totalPages && page <= 200); // safety cap
+
+    return allProposals;
+  };
+
   const handleExport = async (type, courseFilter = null) => {
     setExporting(type + (courseFilter ? courseFilter._id : ''));
     const toastId = toast.loading(`Generating ${EXPORT_META[type].label}…`);
     try {
-      const [proposalsRes, { data: users }] = await Promise.all([
-        api.get('proposals?limit=1000'),
+      const [proposals, { data: users }] = await Promise.all([
+        fetchAllProposals(),
         api.get('users'),
       ]);
 
-      // Backend returns { data, total, page, totalPages } — extract the array safely
-      const proposals = proposalsRes.data?.data ?? proposalsRes.data ?? [];
       const allSupervisors = users.filter(u => u.role === 'supervisor');
 
       if (type === 'main')          await generateMainReport(proposals, evalConfig, allSupervisors, courseFilter);
