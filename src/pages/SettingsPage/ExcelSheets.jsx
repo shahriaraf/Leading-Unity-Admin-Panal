@@ -192,6 +192,7 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
   const headerRow = worksheet.getRow(1);
   headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
   headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+  headerRow.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
 
   let currentRow = 2;
 
@@ -353,7 +354,7 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
           bottom: { style: 'thin' },
           right:  { style: 'thin' },
         };
-        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
       });
       ['title', 'name', 'email', 'link', 'prefSup'].forEach(
         k => (row.getCell(k).alignment.horizontal = 'left')
@@ -381,167 +382,4 @@ export const generateMainReport = async (proposals, evalConfig, allSupervisors, 
 export const generateDefenseSchedule = async (proposals, allSupervisors, courseFilter = null) => {
   let data = courseFilter
     ? proposals.filter(p => p.course?._id === courseFilter._id)
-    : proposals;
-
-  data = data
-    .filter(p => p.defenseDate)
-    .sort((a, b) => new Date(a.defenseDate) - new Date(b.defenseDate));
-
-  if (!data.length) throw new Error('NO_DATA');
-
-  const workbook  = new ExcelJS.Workbook();
-  const sheetName = courseFilter ? `${courseFilter.courseCode} Schedule` : 'Schedule';
-  const worksheet = workbook.addWorksheet(sheetName.substring(0, 30));
-
-  worksheet.columns = [
-    { header: 'SL',            key: 'sn',    width: 5  },
-    { header: 'Schedule',      key: 'time',  width: 25 },
-    { header: 'Student ID',    key: 'id',    width: 18 },
-    { header: 'Name',          key: 'name',  width: 25 },
-    { header: 'Project Title', key: 'title', width: 35 },
-    { header: 'Supervisor',    key: 'sup',   width: 15 },
-    { header: 'Room',          key: 'room',  width: 15 },
-    { header: 'Signature',     key: 'sign',  width: 20 },
-  ];
-
-  const headerRow = worksheet.getRow(1);
-  headerRow.font      = { name: 'Calibri', size: 11, bold: true };
-  headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
-  headerRow.eachCell((cell) => {
-    cell.fill   = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF99F6C9' } };
-    cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-  });
-
-  let currentRow  = 2;
-  let lastDateStr = '';
-
-  data.forEach((item) => {
-    const leaderStudentId  = item.student?.studentId;
-    const itemMembers      = safeMembers(item.teamMembers);
-
-    const leaderEntry = item.student ? [{
-      name:      item.student.name,
-      studentId: item.student.studentId,
-    }] : [];
-
-    const nonLeaderMembers = itemMembers.filter(
-      m => String(m.studentId) !== String(leaderStudentId)
-    );
-
-    const team = [...leaderEntry, ...nonLeaderMembers];
-    if (team.length === 0) return;
-
-    const thisDateStr = new Date(item.defenseDate).toDateString();
-    if (thisDateStr !== lastDateStr) {
-      const dateRow = worksheet.getRow(currentRow);
-      dateRow.values = [formatDateHeader(item.defenseDate)];
-      worksheet.mergeCells(`A${currentRow}:H${currentRow}`);
-      dateRow.getCell(1).fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC7CE' } };
-      dateRow.getCell(1).font      = { name: 'Calibri', size: 12, bold: true };
-      dateRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
-      dateRow.getCell(1).border    = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-      currentRow++;
-      lastDateStr = thisDateStr;
-    }
-
-    const startRow = currentRow;
-    const timeStr  = formatTimeRange(item.defenseDate, item.defenseEndDate);
-    const supStr   = getSupLabel(item.assignedSupervisor, allSupervisors);
-
-    team.forEach((m) => {
-      const row = worksheet.getRow(currentRow);
-      row.values = {
-        sn:    item.serialNumber ?? '—',
-        time:  timeStr,
-        id:    m.studentId,
-        name:  m.name,
-        title: item.title,
-        sup:   supStr,
-        room:  item.room ?? '',
-        sign:  '',
-      };
-      row.getCell('id').alignment   = { vertical: 'middle', horizontal: 'center' };
-      row.getCell('name').alignment = { vertical: 'middle', horizontal: 'left' };
-      row.eachCell({ includeEmpty: true }, (cell) => {
-        cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-      });
-      currentRow++;
-    });
-
-    const endRow = currentRow - 1;
-    if (startRow <= endRow) {
-      worksheet.mergeCells(`A${startRow}:A${endRow}`);
-      worksheet.getCell(`A${startRow}`).alignment = { vertical: 'middle', horizontal: 'center' };
-      worksheet.mergeCells(`B${startRow}:B${endRow}`);
-      worksheet.getCell(`B${startRow}`).alignment = { vertical: 'middle', horizontal: 'center' };
-      worksheet.mergeCells(`E${startRow}:E${endRow}`);
-      worksheet.getCell(`E${startRow}`).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
-      worksheet.mergeCells(`F${startRow}:F${endRow}`);
-      worksheet.getCell(`F${startRow}`).alignment = { vertical: 'middle', horizontal: 'center' };
-      worksheet.mergeCells(`G${startRow}:G${endRow}`);
-      worksheet.getCell(`G${startRow}`).alignment = { vertical: 'middle', horizontal: 'center' };
-      worksheet.mergeCells(`H${startRow}:H${endRow}`);
-    }
-  });
-
-  const buffer = await workbook.xlsx.writeBuffer();
-  saveAs(new Blob([buffer]), `Defense_Schedule_${sheetName}.xlsx`);
-};
-
-
-// =============================================================================
-// 3. TEAM REQUESTS REPORT
-// =============================================================================
-export const generateRequestsReport = async (proposals, courseFilter = null) => {
-  let data = proposals.filter(p => p.serialNumber === null);
-  if (courseFilter) data = data.filter(p => p.course?._id === courseFilter._id);
-  if (!data.length) throw new Error('NO_DATA');
-
-  const workbook  = new ExcelJS.Workbook();
-  const worksheet = workbook.addWorksheet('Team Requests');
-
-  worksheet.columns = [
-    { header: 'Course',        key: 'course', width: 12 },
-    { header: 'Project Title', key: 'title',  width: 40 },
-    { header: 'Role',          key: 'role',   width: 12 },
-    { header: 'Student Name',  key: 'name',   width: 25 },
-    { header: 'Student ID',    key: 'sid',    width: 18 },
-    { header: 'CGPA',          key: 'cgpa',   width: 10 },
-    { header: 'Email',         key: 'email',  width: 30 },
-    { header: 'Phone',         key: 'phone',  width: 15 },
-  ];
-
-  const headerRow = worksheet.getRow(1);
-  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-  headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE67E22' } };
-
-  let currentRow = 2;
-
-  data.forEach((item) => {
-    const members  = safeMembers(item.teamMembers);
-    const startRow = currentRow;
-
-    members.forEach(m => {
-      worksheet.addRow({
-        course: item.course?.courseCode || 'N/A',
-        title:  item.title,
-        role:   'MEMBER',
-        name:   m.name,
-        sid:    m.studentId,
-        cgpa:   m.cgpa || 'N/A',
-        email:  m.email  || 'N/A',
-        phone:  m.mobile || 'N/A',
-      });
-      currentRow++;
-    });
-
-    const endRow = currentRow - 1;
-    if (startRow < endRow) {
-      worksheet.mergeCells(`A${startRow}:A${endRow}`);
-      worksheet.mergeCells(`B${startRow}:B${endRow}`);
-    }
-  });
-
-  const buffer = await workbook.xlsx.writeBuffer();
-  saveAs(new Blob([buffer]), `Team_Requests_Report.xlsx`);
-};
+    :
