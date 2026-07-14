@@ -506,6 +506,7 @@ export const generateRequestsReport = async (proposals, courseFilter = null) => 
     { header: 'Role',          key: 'role',   width: 12 },
     { header: 'Student Name',  key: 'name',   width: 25 },
     { header: 'Student ID',    key: 'sid',    width: 18 },
+    { header: 'CGPA',          key: 'cgpa',   width: 10 },
     { header: 'Email',         key: 'email',  width: 30 },
     { header: 'Phone',         key: 'phone',  width: 15 },
   ];
@@ -527,6 +528,7 @@ export const generateRequestsReport = async (proposals, courseFilter = null) => 
         role:   'MEMBER',
         name:   m.name,
         sid:    m.studentId,
+        cgpa:   m.cgpa || 'N/A',
         email:  m.email  || 'N/A',
         phone:  m.mobile || 'N/A',
       });
