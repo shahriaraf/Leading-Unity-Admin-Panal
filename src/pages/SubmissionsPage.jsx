@@ -23,6 +23,18 @@ const toBDDate = (isoString) => {
   return new Date(date.getTime() + diff);
 };
 
+const PromoteIcon = () => (
+  <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7M9 17l4 4L23 11" />
+  </svg>
+);
+
+const DemoteIcon = () => (
+  <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+  </svg>
+);
+
 const fromBDToUTC = (bdDate) => {
   if (!bdDate) return null;
   const diff = (6 * 60 + bdDate.getTimezoneOffset()) * 60 * 1000;
@@ -918,6 +930,63 @@ const SubmissionsPage = () => {
     }
   };
 
+  // Admin override: move a team between the Team Requests and Official tabs,
+  // bypassing the normal 3–4 member requirement. Used for edge cases like a
+  // 2-member team the admin wants to approve manually.
+  const handleMoveToOfficial = async (proposal) => {
+    const memberCount = 1 + (proposal.teamMembers ?? []).filter(
+      (m) => String(m.studentId) !== String(proposal.student?.studentId)
+    ).length;
+
+    if (memberCount < 3) {
+      const confirmed = window.confirm(
+        `This team has only ${memberCount} member(s) — below the usual minimum of 3. Move it to the Official tab anyway?`
+      );
+      if (!confirmed) return;
+    }
+
+    const promise = axios.put(
+      `${API_BASE}/proposals/${proposal._id}/move-to-official`,
+      {},
+      getAuthHeader()
+    );
+    toast.promise(promise, {
+      loading: "Moving to Official...",
+      success: "Team moved to Official tab!",
+      error: (err) => err?.response?.data?.message || "Failed to move team.",
+    });
+    try {
+      await promise;
+      fetchData();
+    } catch {
+      /* toast already shown above */
+    }
+  };
+
+  const handleMoveToRequests = async (proposal) => {
+    const confirmed = window.confirm(
+      `Move "${proposal.title}" back to Team Requests? Its serial number will be removed.`
+    );
+    if (!confirmed) return;
+
+    const promise = axios.put(
+      `${API_BASE}/proposals/${proposal._id}/move-to-requests`,
+      {},
+      getAuthHeader()
+    );
+    toast.promise(promise, {
+      loading: "Moving to Requests...",
+      success: "Team moved back to Requests tab.",
+      error: (err) => err?.response?.data?.message || "Failed to move team.",
+    });
+    try {
+      await promise;
+      fetchData();
+    } catch {
+      /* toast already shown above */
+    }
+  };
+
   // ── Merge handlers ──────────────────────────────────────────────────────
   const toggleMergeMode = () => {
     setMergeMode((prev) => !prev);
@@ -1290,6 +1359,20 @@ const SubmissionsPage = () => {
             </span>
           ) : (
             <div className="flex justify-end gap-2">
+              {activeTab === "requests" && (
+                <button onClick={(e) => { e.stopPropagation(); handleMoveToOfficial(proposal); }}
+                  className="flex items-center px-2 py-1.5 text-[11px] font-semibold text-emerald-600 hover:text-white hover:bg-emerald-600 bg-emerald-50 rounded-lg transition-colors"
+                  title="Move to Official tab">
+                  <PromoteIcon /> Move to Official
+                </button>
+              )}
+              {activeTab === "official" && (
+                <button onClick={(e) => { e.stopPropagation(); handleMoveToRequests(proposal); }}
+                  className="flex items-center px-2 py-1.5 text-[11px] font-semibold text-amber-600 hover:text-white hover:bg-amber-600 bg-amber-50 rounded-lg transition-colors"
+                  title="Move back to Requests tab">
+                  <DemoteIcon /> Move to Requests
+                </button>
+              )}
               {proposal.status !== "rejected" ? (
                 <button onClick={(e) => { e.stopPropagation(); handleStatusChange(proposal._id, "rejected"); }}
                   className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors" title="Reject">
