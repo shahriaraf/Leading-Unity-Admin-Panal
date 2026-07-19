@@ -930,6 +930,36 @@ const SubmissionsPage = () => {
     }
   };
 
+// Toast-based confirmation dialog (replaces window.confirm).
+  // Resolves true/false depending on which button the user clicks.
+  const confirmToast = (message) =>
+    new Promise((resolve) => {
+      toast.custom(
+        (t) => (
+          <div
+            className={`${t.visible ? "animate-enter" : "animate-leave"} max-w-sm w-full bg-white border border-gray-200 shadow-lg rounded-xl pointer-events-auto flex flex-col p-4`}
+          >
+            <p className="text-sm text-gray-700 mb-3 leading-relaxed">{message}</p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => { toast.dismiss(t.id); resolve(false); }}
+                className="px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { toast.dismiss(t.id); resolve(true); }}
+                className="px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        ),
+        { duration: Infinity }
+      );
+    });
+
   // Admin override: move a team between the Team Requests and Official tabs,
   // bypassing the normal 3–4 member requirement. Used for edge cases like a
   // 2-member team the admin wants to approve manually.
@@ -939,7 +969,7 @@ const SubmissionsPage = () => {
     ).length;
 
     if (memberCount < 3) {
-      const confirmed = window.confirm(
+      const confirmed = await confirmToast(
         `This team has only ${memberCount} member(s) — below the usual minimum of 3. Move it to the Official tab anyway?`
       );
       if (!confirmed) return;
@@ -964,7 +994,7 @@ const SubmissionsPage = () => {
   };
 
   const handleMoveToRequests = async (proposal) => {
-    const confirmed = window.confirm(
+    const confirmed = await confirmToast(
       `Move "${proposal.title}" back to Team Requests? Its serial number will be removed.`
     );
     if (!confirmed) return;
@@ -986,7 +1016,7 @@ const SubmissionsPage = () => {
       /* toast already shown above */
     }
   };
-
+  
   // ── Merge handlers ──────────────────────────────────────────────────────
   const toggleMergeMode = () => {
     setMergeMode((prev) => !prev);
